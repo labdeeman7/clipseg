@@ -16,10 +16,10 @@ class Logger(object):
 log = Logger()
 
 def training_config_from_cli_args():
-    experiment_name = sys.argv[1]
+    experiment_name = sys.argv[1] 
     experiment_id = int(sys.argv[2])
 
-    yaml_config = yaml.load(open(f'experiments/{experiment_name}'), Loader=yaml.SafeLoader)
+    yaml_config = yaml.load(open(f'experiments/{experiment_name}'), Loader=yaml.SafeLoader) 
 
     config = yaml_config['configuration']
     config = {**config, **yaml_config['individual_configurations'][experiment_id]}
@@ -185,7 +185,7 @@ def get_attribute(name):
     
     name_split = name.split('.')
     mod = importlib.import_module('.'.join(name_split[:-1]))
-    return getattr(mod, name_split[-1])
+    return getattr(mod, name_split[-1]) #😉 THey are getting a function using the name of the function. That is quite different. You have to use the import module function, but it is doable. 
 
 
 
@@ -231,7 +231,7 @@ def load_model(checkpoint_id, weights_file=None, strict=True, model_args='from_c
     
     return model
 
-
+#😉 Supports with, because we have the enter and exit  
 class TrainingLogger(object):
 
     def __init__(self, model, log_dir, config=None, *args):

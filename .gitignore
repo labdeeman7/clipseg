@@ -141,3 +141,5 @@ images/
 datasets/PhraseCut/VGPhraseCut_v0
 
 logs/
+
+datasets/Endovis2017/

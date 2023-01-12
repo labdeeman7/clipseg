@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#SBATCH --output=/scratch/users/%u/output_terminal/%j.out
+#SBATCH --output=/scratch/users/%u/output_terminal/clipseg_%j.out
 #SBATCH --job-name=clipseg_phrasecut
 #SBATCH --gres=gpu
 #SBATCH --mem=10000

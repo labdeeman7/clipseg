@@ -193,7 +193,7 @@ def main():
 
                     loss = loss_fn(pred, data_y[0].cuda())  #😉 Calculate loss.
 
-                    if torch.isnan(loss) or torch.isinf(loss): #😉 Loss errors. 🙋‍♂️What could cause theses? 
+                    if torch.isnan(loss) or torch.isinf(loss): #😉 Loss errors. 🙋‍♂️What could cause these? 
                         # skip if loss is nan
                         log.warning('Training stopped due to inf/nan loss.')
                         sys.exit(-1)

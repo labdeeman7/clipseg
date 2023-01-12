@@ -1,5 +1,5 @@
 configuration:
-  batch_size: 64 #🛑 remember to change this back to 64
+  batch_size: 16 #🛑 remember to change this back to 64
   optimizer: torch.optim.AdamW
 
   lr: 0.001
@@ -44,7 +44,7 @@ configuration:
 test_configuration_common:
   normalize: True
   image_size: 352
-  batch_size: 32 #🛑 change back to 32.
+  batch_size: 16 #🛑 change back to 32.
   # max_iterations: 5
   # max_iterations: 150
   

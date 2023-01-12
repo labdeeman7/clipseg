@@ -130,3 +130,14 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+#third_party
+third_party/
+
+.CLIPSEG/
+
+images/
+
+datasets/PhraseCut/VGPhraseCut_v0
+
+logs/

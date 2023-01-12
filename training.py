@@ -124,7 +124,7 @@ def main():
 
 
     save_only_trainable = True #🙋‍♂️ Not sure what this is. 👌 It is used s a flag for the save function. if true, we do not save all the model, but only the trainable parts of the model, whih wiuld be the and any custom trainable parts. 
-    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=4)
+    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=4) #🛑 remeber to change back.
 
     # disable config when hyperparam. opt. to avoid writing logs.
     tracker_config = config if not config.hyperparameter_optimization else None

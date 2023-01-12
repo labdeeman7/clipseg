@@ -51,8 +51,8 @@ def score_config_from_cli_args():
     return config, train_checkpoint_id
 
 
-def get_from_repository(local_name, repo_files, integrity_check=None, repo_dir='~/dataset_repository', 
-                        local_dir='~/datasets'):
+def get_from_repository(local_name, repo_files, integrity_check=None, repo_dir='./dataset_repository', 
+                        local_dir='./datasets'):
     """ copies files from repository to local folder.
     
     repo_files: list of filenames or list of tuples [filename, target path] 

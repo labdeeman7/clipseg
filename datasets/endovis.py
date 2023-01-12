@@ -16,24 +16,7 @@ import cv2
 
 from skimage.draw import polygon2mask
 
-#😉 I need to understand the phrasecut dataset entirely.
-
-# PASCAL_SYNSETS = ['person.n.01', 'bird.n.01', 'cat.n.01', 'cattle.n.01', 'dog.n.01', 'horse.n.01', 'sheep.n.01', 'aeroplane.n.01', 'bicycle.n.01', 
-#                     'boat.n.01', 'bus.n.01', 'car.n.01', 'motorcycle.n.01', 'train.n.01', 'bottle.n.01', 'chair.n.01', 'kitchen_table.n.01',  
-#                     'breakfast_table.n.01', 'trestle_table.n.01','pot_plant.n.01', 'sofa.n.01', 'television.n.03']
-
-# PASCAL_5I_SYNSETS_ORDERED = [
-#     'aeroplane.n.01', 'bicycle.n.01',  'bird.n.01', 'vessel.n.02', 'bottle.n.01', 'bus.n.01', 'car.n.01', 
-#      'cat.n.01',  'chair.n.01',  'cattle.n.01',   'table.n.02',  'dog.n.01', 'horse.n.01',  'motorcycle.n.01', 
-#       'person.n.01', 'pot_plant.n.01', 'sheep.n.01',  'sofa.n.01', 'train.n.01', 'television.n.03'] 
-
-# # Pascal-5i classes
-# PASCAL_5I_CLASS_IDS = {
-#     3: list(range(1, 16)),
-#     2: list(range(1, 11)) + list(range(16, 21)),
-#     1: list(range(1, 6)) + list(range(11, 21)),
-#     0: list(range(6, 21))
-# }
+#😉 Assuming that I have a json file with all the information about the classes in each picture, 
 
 class2sents = {
     'background': ['background', 'body tissues', 'organs'],
@@ -312,30 +295,23 @@ class Endovis2017(object):
         #😉 if no visual, vis_s = [phrase]    
 
 
-    def get_img_ref_data(self, img_id): #😉 Similar to get one img data. 
+    def get_img_ref_data(self, img_id): #😉 Similar to get everything about a single image. 
         """
         get a batch with one image and all refer data on that image
         """
         # Fetch feats according to the image_split_ix
-        wrapped = False
-        max_index = len(self.img_names) - 1
+        # wrapped = False #🙋‍♂️ Not sure what wrapped does.  But it does nto se
+        max_index = len(self.ids) - 1
 
-        if img_id < 0:
-            ri = self.iterator
-            ri_next = ri + 1
-            if ri_next > max_index:
-                ri_next = 0
-                wrapped = True
-            self.iterator = ri_next
-            img_id = self.img_names[ri]
-
+        # task_ids = []
+        # p_structures = []
         phrases = [] #😉 phrases for each image are made. 
-        task_ids = []
-        p_structures = []
-        gt_Polygons = []
-        gt_boxes = []
-        img_ins_cats = []
-        img_ins_atts = []
+        seg_path = None
+
+        # gt_Polygons = []
+        # gt_boxes = []
+        # img_ins_cats = []
+        # img_ins_atts = []
 
         #😉 for each image, we have assigned phrases, task_ids, structures for the phrase(ategory, attributes, relation), instance_boxes(not used often), polygons(segmentation),    
         for task in self.ImgReferTasks[img_id]:

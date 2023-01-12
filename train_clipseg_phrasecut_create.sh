@@ -6,5 +6,5 @@
 #SBATCH --mail-user=oluwatosin.alabi@kcl.ac.uk
 
 source /users/${USER}/.bashrc
-source activate MTPSL
+source activate CLIPSEG
 python training.py phrasecut.yaml 0

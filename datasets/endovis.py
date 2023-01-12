@@ -101,10 +101,9 @@ class Endovis2017(object):
 
     def __init__(self, split, image_size=400, negative_prob=0, aug=None, aug_color=False, aug_crop=True,
                  min_size=0, remove_classes=None, with_visual=False, only_visual=False, mask=None, 
-                 root_dir= "~/dataset/endovis2017/train", segmentation="RES", method="oneshot"):
+                 root_dir= "./datasets/endovis2017/cropped_train", segmentation="RES", method="oneshot"):
         super().__init__()
 
-        self.negative_prob = negative_prob
         self.image_size = image_size
         self.with_visual = with_visual
         self.only_visual = only_visual
@@ -230,16 +229,6 @@ class Endovis2017(object):
         sample_i, j = self.sample_ids[i]
 
         img, seg, phrase = self.load_sample(sample_i, j) #😉 Image, segmentation and phrase. 🙋‍♂️ I am not sure what sample_i and j stand for. 
-
-        if self.negative_prob > 0: #😉 Negative samples.  #😉 sampling for negative probability
-            if torch.rand((1,)).item() < self.negative_prob: #😉 probability for negative probability.
-
-                new_phrase = None 
-                while new_phrase is None or new_phrase == phrase:
-                    idx = torch.randint(0, len(self.all_phrases), (1,)).item()
-                    new_phrase = self.all_phrases[idx]
-                phrase = new_phrase
-                seg = torch.zeros_like(seg)
 
         if self.with_visual:
             # find a corresponding visual image

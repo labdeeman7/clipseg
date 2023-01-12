@@ -31,6 +31,37 @@ class2sents = {
     ],
 }
 
+class2sents_plus = {
+    'background': ['background', 'body tissues', 'organs'],
+    'instrument': ['instrument', 'medical instrument', 'tool', 'medical tool'],
+    'shaft': [
+        'shaft', 'instrument shaft', 'tool shaft', 'instrument body',
+        'tool body', 'instrument handle', 'tool handle'
+    ],
+    'wrist': [
+        'wrist', 'instrument wrist', 'tool wrist', 'instrument neck',
+        'tool neck', 'instrument hinge', 'tool hinge'
+    ],
+    'claspers': [
+        'claspers', 'instrument claspers', 'tool claspers', 'instrument head',
+        'tool head'
+    ],
+    'bipolar_forceps': ['bipolar forceps'],
+    'prograsp_forceps': ['prograsp forceps'],
+    'large_needle_driver': ['large needle driver', 'needle driver'],
+    'vessel_sealer': ['vessel sealer'],
+    'grasping_retractor': ['grasping retractor'],
+    'monopolar_curved_scissors': ['monopolar curved scissors'],
+    'other_medical_instruments': [
+        'other instruments', 'other tools', 'other medical instruments',
+        'other medical tools'
+    ],
+    'Long_phrase': [
+        '{} in this image', 'A minimally invasive surgery is done with {}', ''
+    ]
+}
+
+
 binary_factor = 255
 parts_factor = 85
 instruments_factor = 32
@@ -46,17 +77,17 @@ def get_one_sample(root_dir, image_file, image_path, save_dir, mask,
         save_dir,
         image_file.replace(suffix, '') + '_{}.png'.format(class_name))
     cv2.imwrite(mask_path, mask)
-    cris_data = {
+    clipseg_data = {
         'img_path': image_path.replace(root_dir, ''),
         'mask_path': mask_path.replace(root_dir, ''),
         'num_sents': len(class2sents[class_name]),
         'sents': class2sents[class_name],
     }
-    return cris_data
+    return clipseg_data
 
 
-def process(root_dir, cris_data_file):
-    cris_data_list = []
+def process(root_dir, clipseg_data_file):
+    clipseg_data_list = []
     if 'train' in root_dir:
         dataset_num = 8
     elif 'test' in root_dir:
@@ -65,11 +96,11 @@ def process(root_dir, cris_data_file):
         image_dir = os.path.join(root_dir, 'instrument_dataset_{}'.format(i),
                                  'images')
         print('process: {} ...'.format(image_dir))
-        cris_masks_dir = os.path.join(root_dir,
+        clipseg_masks_dir = os.path.join(root_dir,
                                       'instrument_dataset_{}'.format(i),
-                                      'cris_masks')
-        if not os.path.exists(cris_masks_dir):
-            os.makedirs(cris_masks_dir)
+                                      'clipseg_masks')
+        if not os.path.exists(clipseg_masks_dir):
+            os.makedirs(clipseg_masks_dir)
         image_files = os.listdir(image_dir)
         image_files.sort()
         for image_file in image_files:
@@ -85,9 +116,9 @@ def process(root_dir, cris_data_file):
                                                    'instrument']):
                 target_mask = (binary_mask == class_id) * 255
                 if target_mask.sum() != 0:
-                    cris_data_list.append(
+                    clipseg_data_list.append(
                         get_one_sample(root_dir, image_file, image_path,
-                                       cris_masks_dir, target_mask,
+                                       clipseg_masks_dir, target_mask,
                                        class_name))
             # parts
             parts_mask_file = image_path.replace('images',
@@ -101,9 +132,9 @@ def process(root_dir, cris_data_file):
                     continue
                 target_mask = (parts_mask == class_id) * 255
                 if target_mask.sum() != 0:
-                    cris_data_list.append(
+                    clipseg_data_list.append(
                         get_one_sample(root_dir, image_file, image_path,
-                                       cris_masks_dir, target_mask,
+                                       clipseg_masks_dir, target_mask,
                                        class_name))
             # instruments
             instruments_mask_file = image_path.replace(
@@ -121,19 +152,19 @@ def process(root_dir, cris_data_file):
                     continue
                 target_mask = (instruments_mask == class_id) * 255
                 if target_mask.sum() != 0:
-                    cris_data_list.append(
+                    clipseg_data_list.append(
                         get_one_sample(root_dir, image_file, image_path,
-                                       cris_masks_dir, target_mask,
+                                       clipseg_masks_dir, target_mask,
                                        class_name))
 
-    with open(os.path.join(root_dir, cris_data_file), 'w') as f:
-        json.dump(cris_data_list, f)
+    with open(os.path.join(root_dir, clipseg_data_file), 'w') as f:
+        json.dump(clipseg_data_list, f)
 
 
 if __name__ == '__main__':
     # must add last "/"
     # /jmain02/home/J2AD019/exk01/zxz35-exk01/data/cambridge-1/EndoVis2017/cropped_test/
     root_dir = sys.argv[1]
-    # cris_test.json
-    cris_data_file = sys.argv[2]
-    process(root_dir, cris_data_file)
+    # clipseg_test.json
+    clipseg_data_file = sys.argv[2]
+    process(root_dir, clipseg_data_file)

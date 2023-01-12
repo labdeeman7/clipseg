@@ -191,7 +191,7 @@ class PhraseCut(object):
                 from datasets.pascal_zeroshot import PASCAL_VOC_CLASSES_ZS
 
                 avoid = [c for class_set in PASCAL_VOC_CLASSES_ZS[:stop] for c in class_set]  #😉 Class names to be avoided.
-                print(avoid)
+                # print(avoid)
 
             elif remove_classes[0] == 'aff': #😉 Not sure was aff is. It maybe related to LaVIS. pa5i is pascal 5i, xeroshot is maybe coco or maybe still pascal, not sure. what is aff? 
                 # avoid = ['drink.v.01', 'sit.v.01', 'ride.v.02']
@@ -268,8 +268,8 @@ class PhraseCut(object):
         return len(self.sample_ids) #😉 length of all sample ids. 
 
     def load_sample(self, sample_i, j): #😉 load_samples.
-        print(sample_i)
-        print(j)
+        # print(sample_i)
+        # print(j)
         img_ref_data = self.refvg_loader.get_img_ref_data(sample_i) #😉  loader get reference data?🙋‍♂️ Not sure what reference data is 
 
         polys_phrase0 = img_ref_data['gt_Polygons'][j] #😉 polygon segmentation. 
@@ -318,7 +318,7 @@ class PhraseCut(object):
 
     def __getitem__(self, i):
 
-        print(i)
+        # print(i)
  
         sample_i, j = self.sample_ids[i]
 

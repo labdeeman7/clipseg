@@ -17,12 +17,8 @@ import cv2
 from skimage.draw import polygon2mask
 import json
 
-#😉 Assuming that I have a json file with all the information about the classes in each picture, 
-
-binary_factor = 255
-parts_factor = 85
-instruments_factor = 32
-
+#😉 Assuming that I have a json file with all the information about the classes in each picture
+# There is a reason why there is a find crop, and it is a different function, the authors are trying to ensure that the crop covers a lot of the wanted class. This is why segmentation is taken. I need to check the paper again. 
 def random_crop_slices(origin_size, target_size):
     """Gets slices of a random crop. """
     assert origin_size[0] >= target_size[0] and origin_size[1] >= target_size[1], f'actual size: {origin_size}, target size: {target_size}'
@@ -75,10 +71,11 @@ class Endovis2017(object):
 
     def __init__(self, split, image_size=400, negative_prob=0, aug=None, aug_color=False, aug_crop=True,
                  min_size=0, remove_classes=None, with_visual=False, only_visual=False, mask=None, 
-                 root_dir= "./datasets/endovis2017/cropped_train", training_style="RES"):
+                 root_dir= "./datasets/endovis2017/cropped_train"):
         super().__init__()
 
         self.info = json.load(open(join(root_dir, '{}.json'.format(split))))
+        self.negative_prob = negative_prob
         self.image_size = image_size
         self.with_visual = with_visual #🙋‍♂️ I am guessing that with visual refers to using a visual prompt along with the text prompt. This is one-shot segmentation
         self.only_visual = only_visual #🙋‍♂️ only visual probably means, no text prompts?
@@ -87,7 +84,7 @@ class Endovis2017(object):
         self.mask = mask
         self.aug_crop = aug_crop
         self.root_dir = root_dir
-        self.training_style  = training_style # training_style can be refereing expression segmentation (RES), zero_shot(ZERO) and one_shot(ONE)
+        self.training_style  = training_style # training_style can be refereing expression segmentation (RES), RES+ referring image segmentation with some 
         
         if aug_color:
             self.aug_color = transforms.Compose([
@@ -156,8 +153,8 @@ class Endovis2017(object):
 
         img, seg, phrase = self.load_sample(sample_i) #😉 Image, segmentation and phrase. 🙋‍♂️ I am not sure what sample_i and j stand for. 
 
-        if self.training_style == "oneshot": 
-            #😉 In the original paper, for every phrase, you have a unique visual prompt that corresponds and its segmentation
+        if self.with_visual: 
+            #😉 In the original paper, for every phrase, you can have visual prompts that corresponds with this phrase and the segmentation of the visual
             # find a corresponding visual image.
             #😉 Masks comes in here. "amd" acts as a delimiter.
             #  text - only a text mask, we cannot do one-shot when mask is text. 

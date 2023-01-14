@@ -1,5 +1,5 @@
 configuration:
-  batch_size: 16 #🛑 remember to change this back to 64 or 16. 
+  batch_size: 8 #🛑 remember to change this back to 64 or 16. 
   optimizer: torch.optim.AdamW
 
   lr: 0.001
@@ -12,7 +12,7 @@ configuration:
   T_max: 20000
   eta_min: 0.0001
 
-  max_iterations: 20000 #🛑 Remebr to change this back to 20,000 or 1,000
+  max_iterations: 20000 #🛑 Remebr to change this back to 20,000 or maybe even more to compensate for not utilizing 64 batch_size maybe 50,000
   val_interval: null
 
   # dataset
@@ -38,7 +38,7 @@ configuration:
   depth: 3
   fix_shift: False
 
-  # save checkpoints
+  # save_checkpoints
   save_checkpoint_iterations: True
   save_checkpoint_freq: 500
 
@@ -51,7 +51,7 @@ configuration:
 test_configuration_common:
   normalize: True
   image_size: 352
-  batch_size: 16 #🛑 change back to 32 or 16
+  batch_size: 8 #🛑 change back to 32 or 16
   # max_iterations: 5
   # max_iterations: 150
   

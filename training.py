@@ -6,6 +6,7 @@ import math
 import os
 import sys
 import wandb
+import time
 
 from general_utils import log
 
@@ -94,7 +95,7 @@ def main():
 
     dataset = dataset_cls(**dataset_args) #😉 dataset from cls
 
-    log.info(f'Train dataset {dataset.__class__.__name__} (length: {len(dataset)})') #😉logs train dataset
+    print(f'Train dataset {dataset.__class__.__name__} (length: {len(dataset)})') #😉logs train dataset
 
     if val_interval is not None: #😉 a way to control if vaidation would be done.
         dataset_val_args = {k[4:]: v for k,v in config.items() if k.startswith('val_') and k != 'val_interval'} #😉 validation args. 
@@ -124,7 +125,7 @@ def main():
     loss_fn = get_attribute(config.loss) #😉 an actual function from config.
 
     if config.amp:
-        log.info('Using AMP')
+        print('Using AMP')
         autocast_fn = autocast 
         scaler = GradScaler()
     else:
@@ -132,7 +133,7 @@ def main():
 
 
     save_only_trainable = True #🙋‍♂️ Not sure what this is. 👌 It is used s a flag for the save function. if true, we do not save all the model, but only the trainable parts of the model, whih wiuld be the and any custom trainable parts. 
-    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=4) #🛑 remeber to change back.
+    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=8) #🛑 remeber to change back.
 
     # disable config when hyperparam. opt. to avoid writing logs.
     tracker_config = config if not config.hyperparameter_optimization else None
@@ -141,6 +142,7 @@ def main():
  
         i = 0
         while True: #😉 Trains Starts
+            end = time.time()
             for data_x, data_y in data_loader:
 
                 # between caption and output feature.
@@ -206,9 +208,6 @@ def main():
                         log.warning('Training stopped due to inf/nan loss.')
                         sys.exit(-1)
 
-                    extra_loss = 0 #🙋‍♂️ what is extra loss? 👌It is not used anywhere, but it is printed. I would assume that it is old code, that was not removed.
-                    loss += extra_loss
-
                 opt.zero_grad() #🙋‍♂️no grad scaler? 👌 Scaler is used when you wanna call loss.backwards, step and update on the loss. 
 
                 if scaler is None: #😉 Nice.
@@ -218,15 +217,21 @@ def main():
                     scaler.scale(loss).backward()
                     scaler.step(opt)
                     scaler.update()
-
+                
+                step_duration = time.time - end
+                end = time.time
                 if lr_scheduler is not None:
                     lr_scheduler.step() #😉 Nice. 
                     if i % config.log_freq == 0: #😉 logs current learning rates. I saw no logs in the previous loop.
                         current_lr = [g['lr'] for g in opt.param_groups][0]
-                        log.info(f'current lr: {current_lr:.5f} ({len(opt.param_groups)} parameter groups)')
-                        log.info(f'step [{i}]/[{max_iterations}]\t Loss {loss.item()}  ')
+                        print(f'current lr: {current_lr:.5f} ({len(opt.param_groups)} parameter groups)')
+                        print(f'step [{i}]/[{max_iterations}]\t Loss {loss.item()}  step_duration {step_duration}')
+                        experiment.log({
+                                'current_lr': current_lr,
+                                'time_per_step': step_duration,
+                            })
 
-                logger.iter(i=i, loss=loss)  #😉 class logger that was written to support "with statements"             
+                logger.iter(i=i, loss=loss.item())  #😉 class logger that was written to support "with statements"             
                 i += 1
                 print(f"step is {i}")
                 experiment.log({
@@ -269,8 +274,8 @@ def main():
                             logger.save_weights(only_trainable=save_only_trainable)
                             best_val_loss = val_loss
                     
-                    log.info(f'Validation loss: {val_loss}' + score_str)
-                    logger.iter(i=i, val_loss=val_loss, extra_loss=float(extra_loss), **val_scores)
+                    print(f'Validation loss: {val_loss}' + score_str)
+                    logger.iter(i=i, val_loss=val_loss, **val_scores)
                     model.train() #😉 swith the model from eval (doen in validate to ) to train
 
             print('epoch complete') #😉 Nice. Lets try.

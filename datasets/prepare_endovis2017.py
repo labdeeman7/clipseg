@@ -83,15 +83,17 @@ class2ref = {
 }
 
 
-
-
 binary_factor = 255
 parts_factor = 85
 instruments_factor = 32
+sample_id = 0
 
 
 def get_one_sample(root_dir, image_file, image_path, save_dir, mask,
-                   class_name, sample_id, visual_prompt_img_dir, visual_prompt_mask_dir):
+                   class_name, visual_prompt_img_dir, visual_prompt_mask_dir):
+
+    global sample_id
+
     if '.jpg' in image_file:
         suffix = '.jpg'
     elif '.png' in image_file:
@@ -109,6 +111,7 @@ def get_one_sample(root_dir, image_file, image_path, save_dir, mask,
         "visual_prompt_img_path": [ join(visual_prompt_img_dir, img_path) for img_path in class2ref[class_name]['visual_prompt_img'] ], #😉 choose this randomly in other parts of the code. 
         "visual_prompt_mask_path": [ join(visual_prompt_mask_dir, mask_path) for mask_path in class2ref[class_name]['visual_prompt_mask'] ], #😉 This should be empty
     }
+    sample_id += 1
     return clipseg_data
 
 
@@ -127,11 +130,12 @@ def process(root_dir, clipseg_data_file, split='train'):
     instr_seg_vis_prompt_dir = join(vis_prompt_dir, "instrument_segmentation")
     part_seg_vis_prompt_dir = join(vis_prompt_dir, "part_segmentation")
 
+    
     for i in range(1, dataset_num + 1):
-        image_dir = os.path.join(root_dir, 'instrument_dataset_{}'.format(i),
+        image_dir = os.path.join(root_dir, 'cropped_{}'.format(split) , 'instrument_dataset_{}'.format(i),
                                  'images')
         print('process: {} ...'.format(image_dir))
-        clipseg_masks_dir = os.path.join(root_dir,
+        clipseg_masks_dir = os.path.join(root_dir, 'cropped_{}'.format(split),
                                       'instrument_dataset_{}'.format(i),
                                       'clipseg_masks')
         if not os.path.exists(clipseg_masks_dir):
@@ -161,6 +165,7 @@ def process(root_dir, clipseg_data_file, split='train'):
                                        clipseg_masks_dir, target_mask,
                                        class_name, class_vis_prompt_img_dir, 
                                        class_vis_prompt_mask_dir))
+
             # parts
             parts_mask_file = image_path.replace('images',
                                                  'parts_masks').replace(
@@ -181,6 +186,7 @@ def process(root_dir, clipseg_data_file, split='train'):
                                        clipseg_masks_dir, target_mask,
                                        class_name, class_vis_prompt_img_dir, 
                                        class_vis_prompt_mask_dir))
+
             # instruments
             instruments_mask_file = image_path.replace(
                 'images', 'instruments_masks').replace('.jpg', '.png')
@@ -196,6 +202,10 @@ def process(root_dir, clipseg_data_file, split='train'):
                 if class_id == 0:
                     continue
                 target_mask = (instruments_mask == class_id) * 255
+                class_vis_prompt_img_dir = join(instr_seg_vis_prompt_dir, class_name, "img")
+                class_vis_prompt_mask_dir = join(instr_seg_vis_prompt_dir, class_name, "mask")
+
+                
                 if target_mask.sum() != 0:
                     clipseg_data_list.append(
                         get_one_sample(root_dir, image_file, image_path,
@@ -213,4 +223,5 @@ if __name__ == '__main__':
     root_dir = sys.argv[1]
     # clipseg_test.json
     clipseg_data_file = sys.argv[2]
-    process(root_dir, clipseg_data_file)
+    split = sys.argv[3]
+    process(root_dir, clipseg_data_file, split)

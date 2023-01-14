@@ -2,7 +2,7 @@
 import numpy as np
 import torch
 
-
+#😉 cool. the one shot blending herer. depending on the modes. 
 def blend_image_segmentation(img, seg, mode, image_size=224):
 
 

@@ -1,4 +1,5 @@
 #😉 This is gonna maybe be the hardest code for me to read. This and VITSEG. 
+#😉 This is gonna maybe be the hardest code for me to read. This and VITSEG. 
 #😉 Okay, I think the main difference between this and VITSEG is that VITSEG is that the CLIP visual encoder is used. 
 
 import math

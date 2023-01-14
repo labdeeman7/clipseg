@@ -15,35 +15,9 @@ from general_utils import get_from_repository
 import cv2
 
 from skimage.draw import polygon2mask
+import json
 
 #😉 Assuming that I have a json file with all the information about the classes in each picture, 
-
-class2sents = {
-    'background': ['background', 'body tissues', 'organs'],
-    'instrument': ['instrument', 'medical instrument', 'tool', 'medical tool'],
-    'shaft': [
-        'shaft', 'instrument shaft', 'tool shaft', 'instrument body',
-        'tool body', 'instrument handle', 'tool handle'
-    ],
-    'wrist': [
-        'wrist', 'instrument wrist', 'tool wrist', 'instrument neck',
-        'tool neck', 'instrument hinge', 'tool hinge'
-    ],
-    'claspers': [
-        'claspers', 'instrument claspers', 'tool claspers', 'instrument head',
-        'tool head'
-    ],
-    'bipolar_forceps': ['bipolar forceps'],
-    'prograsp_forceps': ['prograsp forceps'],
-    'large_needle_driver': ['large needle driver', 'needle driver'],
-    'vessel_sealer': ['vessel sealer'],
-    'grasping_retractor': ['grasping retractor'],
-    'monopolar_curved_scissors': ['monopolar curved scissors'],
-    'other_medical_instruments': [
-        'other instruments', 'other tools', 'other medical instruments',
-        'other medical tools'
-    ],
-}
 
 binary_factor = 255
 parts_factor = 85
@@ -101,22 +75,19 @@ class Endovis2017(object):
 
     def __init__(self, split, image_size=400, negative_prob=0, aug=None, aug_color=False, aug_crop=True,
                  min_size=0, remove_classes=None, with_visual=False, only_visual=False, mask=None, 
-                 root_dir= "./datasets/endovis2017/cropped_train", segmentation="RES", method="oneshot"):
+                 root_dir= "./datasets/endovis2017/cropped_train", training_style="RES"):
         super().__init__()
 
+        self.info = json.load(open(join(root_dir, '{}.json'.format(split))))
         self.image_size = image_size
-        self.with_visual = with_visual
-        self.only_visual = only_visual
+        self.with_visual = with_visual #🙋‍♂️ I am guessing that with visual refers to using a visual prompt along with the text prompt. This is one-shot segmentation
+        self.only_visual = only_visual #🙋‍♂️ only visual probably means, no text prompts?
         self.phrase_form = '{}'
         self.split = split
         self.mask = mask
         self.aug_crop = aug_crop
         self.root_dir = root_dir
-        self.method = method  #segmentation can be refereing expression segmentation (RES), zero_shot(ZERO) and one_shot(ONE)
-        self.segmentation  = segmentation
-        self.img_paths = []
-        self.seg_paths = [] #😉 I need to process the seg_paths such that all segmentation for an image can be used together.  
-        self.ids = [] #😉 when shuffling, remember to shuffle with same seed for all img_paths, seg_paths and 
+        self.training_style  = training_style # training_style can be refereing expression segmentation (RES), zero_shot(ZERO) and one_shot(ONE)
         
         if aug_color:
             self.aug_color = transforms.Compose([
@@ -125,47 +96,11 @@ class Endovis2017(object):
         else:
             self.aug_color = None
 
-        self.get_img_and_seg_paths()
-        self.get_ids()
-
-        
         mean = [0.485, 0.456, 0.406]
         std = [0.229, 0.224, 0.225]
         self.normalize = transforms.Normalize(mean, std)
 
-        self.sample_ids = [(i, j) 
-                           for i in self.img_paths 
-                           for j in range(len(self.get_img_ref_data(i)['phrases']))]
-        
-
-        # self.all_phrases = list(set([p for i in self.refvg_loader.img_names for p in self.refvg_loader.get_img_ref_data(i)['phrases']]))
-
-        from itertools import groupby
-        samples_by_phrase = [(self.get_img_ref_data(i)['phrases'][j], (i, j)) 
-                             for i, j in self.sample_ids]
-        samples_by_phrase = sorted(samples_by_phrase)
-        samples_by_phrase = groupby(samples_by_phrase, key=lambda x: x[0])
-        
-        self.samples_by_phrase = {prompt: [s[1] for s in prompt_sample_ids] for prompt, prompt_sample_ids in samples_by_phrase}
-
-        self.all_phrases = list(set(self.samples_by_phrase.keys()))
-
-
-        if self.only_visual:
-            assert self.with_visual
-            self.sample_ids = [(i, j) for i, j in self.sample_ids
-                               if len(self.samples_by_phrase[self.refvg_loader.get_img_ref_data(i)['phrases'][j]]) > 1]
-
-        # Filter by size (if min_size is set)
-        sizes = [self.refvg_loader.get_img_ref_data(i)['gt_boxes'][j] for i, j in self.sample_ids]
-        image_sizes = [self.refvg_loader.get_img_ref_data(i)['width'] * self.refvg_loader.get_img_ref_data(i)['height'] for i, j in self.sample_ids]
-        #self.sizes = [sum([(s[2] - s[0]) * (s[3] - s[1]) for s in size]) for size in sizes]
-        self.sizes = [sum([s[2] * s[3] for s in size]) / img_size for size, img_size in zip(sizes, image_sizes)]
-
-        if min_size:
-            print('filter by size')
-
-        self.sample_ids = [self.sample_ids[i] for i in range(len(self.sample_ids)) if self.sizes[i] > min_size]
+        self.sample_ids = [v["sample_id"] for k,v in self.info]
 
         self.seg_path = join(expanduser('~/datasets/PhraseCut/VGPhraseCut_v0/images/'))
         self.img_path = join(expanduser('~/datasets/PhraseCut/VGPhraseCut_v0/segmentation/'))
@@ -173,23 +108,16 @@ class Endovis2017(object):
     def __len__(self):
         return len(self.sample_ids)
 
-    def load_sample(self, sample_i, j): #😉 load_samples.
-        print(sample_i)
-        print(j)
-        img_ref_data = self.refvg_loader.get_img_ref_data(sample_i) #😉  loader get reference data?🙋‍♂️ Not sure what reference data is 
+    def load_sample(self, sample_i): #😉 load_samples.
+        
+        sample_ref_data = self.info[sample_i] #😉  loader get reference data?🙋‍♂️ Not sure what reference data is 
 
-        polys_phrase0 = img_ref_data['gt_Polygons'][j] #😉 polygon segmentation. 
-        phrase = img_ref_data['phrases'][j] #😉 phrases. 
-        phrase = self.phrase_form.format(phrase) #😉 Using a phrase form. 
-
-        masks = [] #😉 masks, 
-        for polys in polys_phrase0: 
-            for poly in polys: #😉 for each polygon,
-                poly = [p[::-1] for p in poly]  # swap x,y #😉 Reverse the direction. 
-                masks += [polygon2mask((img_ref_data['height'], img_ref_data['width']), poly)] #😉 polygon to mask. 
-
-        seg = np.stack(masks).max(0) #😉 seg, 
-        img = np.array(Image.open(join(self.base_path, str(img_ref_data['image_id']) + '.jpg'))) #😉 img
+        phrase = sample_ref_data['phrases'] #😉 phrases. 
+        mask_path = sample_ref_data['mask_path']
+        img_path = sample_ref_data['img_path']
+         
+        seg = cv2.imread(mask_path) #😉 seg, 
+        img = np.array(Image.open(join(self.root_dir, img_path))) #😉 img
 
         min_shape = min(img.shape[:2]) #😉 min_shape. 
 
@@ -223,52 +151,44 @@ class Endovis2017(object):
         return img, seg, phrase #😉 Image, segmentation, phrase, #😉 No support images done here or masking of the support images.   
 
     def __getitem__(self, i):
-
-        print(i)
  
-        sample_i, j = self.sample_ids[i]
+        sample_i= self.sample_ids[i]
 
-        img, seg, phrase = self.load_sample(sample_i, j) #😉 Image, segmentation and phrase. 🙋‍♂️ I am not sure what sample_i and j stand for. 
+        img, seg, phrase = self.load_sample(sample_i) #😉 Image, segmentation and phrase. 🙋‍♂️ I am not sure what sample_i and j stand for. 
 
-        if self.with_visual:
-            # find a corresponding visual image
-            if phrase in self.samples_by_phrase and len(self.samples_by_phrase[phrase]) > 1: #😉 samples_by_phrase gotten from the dataset.
-                idx = torch.randint(0, len(self.samples_by_phrase[phrase]), (1,)).item()
-                other_sample = self.samples_by_phrase[phrase][idx]
-                #print(other_sample)
-                img_s, seg_s, _ = self.load_sample(*other_sample)
+        if self.training_style == "oneshot": 
+            #😉 In the original paper, for every phrase, you have a unique visual prompt that corresponds and its segmentation
+            # find a corresponding visual image.
+            #😉 Masks comes in here. "amd" acts as a delimiter.
+            #  text - only a text mask, we cannot do one-shot when mask is text. 
+            #😉 separate - sepaerate the text and mask, as different support inputs. Do not blend. Useful for the original one-shot that was suggested. 
+            #😉 there are others. crop, blur, highlight etc. 
+            sample_ref_data = self.info[sample_i]
+            
+            img_s = cv2.imread(sample_ref_data["visual_prompt_img_path"]) 
+            seg_s = cv2.imread(sample_ref_data["visual_prompt_mask_path"])
 
-                from datasets.utils import blend_image_segmentation
+            from datasets.utils import blend_image_segmentation #This is the one_shot segmentation. 
 
-                if self.mask in {'separate', 'text_and_separate'}:
-                    # assert img.shape[1:] == img_s.shape[1:] == seg_s.shape == seg.shape[1:]
-                    add_phrase = [phrase] if self.mask == 'text_and_separate' else []
-                    vis_s = add_phrase + [img_s, seg_s, True] #😉 if with_visual, phrase in samples_by_phrase and mask is either separate or text-and_separate,  vis_s is [phrase, img_s, seg_s, True] , img_s = Augmented_segmentation_image, seg_s = segmentation, 🙋‍♂️True not sure.   
+            if self.mask in {'separate', 'text_and_separate'}: #😉 return separated mask and shape. if only separate, and no text, do not return text. True for oneshot I gyess
+                # assert img.shape[1:] == img_s.shape[1:] == seg_s.shape == seg.shape[1:]
+                add_phrase = [phrase] if self.mask == 'text_and_separate' else []
+                vis_s = add_phrase + [img_s, seg_s, True] #😉 if with_visual, phrase in samples_by_phrase and mask is either separate or text-and_separate,  vis_s is [phrase, img_s, seg_s, True] , img_s = support_img, seg_s = support_seg, 🙋‍♂️True not sure.   
+            else:
+                if self.mask.startswith('text_and_'):
+                    mask_mode = self.mask[9:] #😉add phrase and remove the text from the mask.
+                    label_add = [phrase]
                 else:
-                    if self.mask.startswith('text_and_'):
-                        mask_mode = self.mask[9:]
-                        label_add = [phrase]
-                    else:
-                        mask_mode = self.mask
-                        label_add = []
+                    mask_mode = self.mask
+                    label_add = []
 
-                    masked_img_s = torch.from_numpy(blend_image_segmentation(img_s, seg_s, mode=mask_mode, image_size=self.image_size)[0])
-                    vis_s = label_add + [masked_img_s, True] #😉 if with_visual, phrase in samples_by_phrase and mask is not  separate or text-and_separate, vis_s is [phrase, masked_img_s, True], masked_img_s = a blend of the image and segmentation, 🙋‍♂️True not sure
+                masked_img_s = torch.from_numpy(blend_image_segmentation(img_s, seg_s, mode=mask_mode, image_size=self.image_size)[0])
+                vis_s = label_add + [masked_img_s, True] #😉 if with_visual, phrase in samples_by_phrase and mask is not  separate or text-and_separate, vis_s is [phrase, masked_img_s, True], masked_img_s = a blend of the image and segmentation, 🙋‍♂️True not sure
                 
-            else: #😉 Phrase is unique. it is not in the list of phrases. 
-                # phrase is unique
-                vis_s = torch.zeros_like(img)   
-
-                if self.mask in {'separate', 'text_and_separate'}:
-                    add_phrase = [phrase] if self.mask == 'text_and_separate' else []
-                    vis_s = add_phrase + [vis_s, torch.zeros(*vis_s.shape[1:], dtype=torch.uint8), False] #😉 if with_visual, unique_phrase, mask is separate or text-and_separate, vis-s = [phrase, zeros_img, zeros_w_h_img, False]
-                elif self.mask.startswith('text_and_'):
-                    vis_s = [phrase, vis_s, False]   #😉 if with_visual, unique_phrase, mask is text_and_, vis-s = [phrase, zeros_img, False]
-                else:
-                    vis_s = [vis_s, False]  #😉 if with_visual, unique_phrase, mask is unknown, vis-s = [zeros_img, False]
-        else:  #😉 No visual
+           
+        else:  #😉 No visual, just normal ref expression segmentation training. and not training on phrase cut+. We are interested in this.
             assert self.mask == 'text'  #😉 mask must be text. 
-            vis_s = [phrase] #😉 if no visual, vis_s = [phrase]
+            vis_s = [phrase] #😉 if no visual prompt, just use the phrase, vis_s = [phrase]
         
         seg = seg.unsqueeze(0).float()
 
@@ -282,183 +202,3 @@ class Endovis2017(object):
         #😉 if with_visual, unique_phrase, mask is text_and_, vis-s = [phrase, zeros_img, False]
         #😉 if with_visual, unique_phrase, mask is unknown, vis-s = [zeros_img, False]
         #😉 if no visual, vis_s = [phrase]    
-
-
-    def get_img_ref_data(self, img_id): #😉 Similar to get everything about a single image. 
-        """
-        get a batch with one image and all refer data on that image
-        """
-        # Fetch feats according to the image_split_ix
-        # wrapped = False #🙋‍♂️ Not sure what wrapped does.  But it does nto se
-        max_index = len(self.ids) - 1
-
-        # task_ids = []
-        # p_structures = []
-        phrases = [] #😉 phrases for each image are made. 
-        seg_path = None
-
-        # gt_Polygons = []
-        # gt_boxes = []
-        # img_ins_cats = []
-        # img_ins_atts = []
-
-        #😉 for each image, we have assigned phrases, task_ids, structures for the phrase(ategory, attributes, relation), instance_boxes(not used often), polygons(segmentation),    
-        for task in self.ImgReferTasks[img_id]:
-            phrases.append(task['phrase']) #😉 
-            task_ids.append(task['task_id'])
-            p_structures.append(task['phrase_structure'])
-            if not self.input_anno_only:
-                gt_boxes.append(task['instance_boxes'])
-                gt_Polygons.append(task['Polygons'])
-                img_ins_cats += [task['phrase_structure']['name']] * len(task['instance_boxes'])
-                img_ins_atts += [task['phrase_structure']['attributes']] * len(task['instance_boxes'])
-
-        # return data
-        data = dict() #😉 we return data. So for endovis2018, we need to return all these values except
-        #😉 add img_path and segmentation_path, remove everything that has to do with bounding boxes, categtories, and bounding boxes. not sure what p_structures is.
-        data['image_id'] = img_id #😉 
-        img_info = self.ImgInfo[img_id]
-        data['width'] = img_info['width'] 
-        data['height'] = img_info['height']
-        data['split'] = img_info['split']
-
-        data['task_ids'] = task_ids
-        data['phrases'] = phrases #😉 phrases for an image are Stored here.
-        data['p_structures'] = p_structures
-        if not self.input_anno_only:
-            data['img_ins_boxes'] = self.ImgInsBoxes[img_id]
-            data['img_ins_Polygons'] = self.ImgInsPolygons[img_id]
-            data['img_ins_cats'] = img_ins_cats
-            data['img_ins_atts'] = img_ins_atts
-            data['gt_Polygons'] = gt_Polygons
-            data['gt_boxes'] = gt_boxes 
-
-        data['bounds'] = {'it_pos_now': self.iterator, 'it_max': max_index, 'wrapped': wrapped}
-
-        return data 
-        #😉 bounds, vg_obj_ids, vg_boxes, img_vg_boxes, gt_boxes, gt_Polygons, img_ins_atts
-    def get_one_sample(self, image_file):
-        if '.jpg' in image_file:
-            suffix = '.jpg'
-        elif '.png' in image_file:
-            suffix = '.png'
-        mask_path = os.path.join(
-            self.save_dir,
-            image_file.replace(suffix, '') + '_{}.png'.format(class_name))
-        cv2.imwrite(mask_path, mask)
-        cris_data = {
-            'img_path': image_path.replace(root_dir, ''),
-            'mask_path': mask_path.replace(root_dir, ''),
-            'num_sents': len(class2sents[class_name]),
-            'sents': class2sents[class_name],
-        } 
-
-    def get_img_information(self):
-        cris_data_list = []
-        if 'train' in root_dir:
-            dataset_num = 8
-        elif 'test' in root_dir:
-            dataset_num = 10
-        for i in range(1, dataset_num + 1):
-            image_dir = os.path.join(root_dir, 'instrument_dataset_{}'.format(i),
-                                    'images')
-            print('process: {} ...'.format(image_dir))
-            cris_masks_dir = os.path.join(root_dir,
-                                        'instrument_dataset_{}'.format(i),
-                                        'cris_masks')
-            if not os.path.exists(cris_masks_dir):
-                os.makedirs(cris_masks_dir)
-            image_files = os.listdir(image_dir)
-            image_files.sort()
-            for image_file in image_files:
-                print(image_file)
-                image_path = os.path.join(image_dir, image_file)
-                # binary
-                binary_mask_file = image_path.replace('images',
-                                                    'binary_masks').replace(
-                                                        '.jpg', '.png')
-                binary_mask = cv2.imread(binary_mask_file)
-                binary_mask = (binary_mask / binary_factor).astype(np.uint8)
-                for class_id, class_name in enumerate(['background',
-                                                    'instrument']):
-                    target_mask = (binary_mask == class_id) * 255
-                    if target_mask.sum() != 0:
-                        cris_data_list.append(
-                            get_one_sample(root_dir, image_file, image_path,
-                                        cris_masks_dir, target_mask,
-                                        class_name))
-                # parts
-                parts_mask_file = image_path.replace('images',
-                                                    'parts_masks').replace(
-                                                        '.jpg', '.png')
-                parts_mask = cv2.imread(parts_mask_file)
-                parts_mask = (parts_mask / parts_factor).astype(np.uint8)
-                for class_id, class_name in enumerate(
-                    ['background', 'shaft', 'wrist', 'claspers']):
-                    if class_id == 0:
-                        continue
-                    target_mask = (parts_mask == class_id) * 255
-                    if target_mask.sum() != 0:
-                        cris_data_list.append(
-                            self.get_one_sample(root_dir, image_file, image_path,
-                                        cris_masks_dir, target_mask,
-                                        class_name))
-                # instruments
-                instruments_mask_file = image_path.replace(
-                    'images', 'instruments_masks').replace('.jpg', '.png')
-                instruments_mask = cv2.imread(instruments_mask_file)
-                instruments_mask = (instruments_mask / instruments_factor).astype(
-                    np.uint8)
-                for class_id, class_name in enumerate([
-                        'background', 'bipolar_forceps', 'prograsp_forceps',
-                        'large_needle_driver', 'vessel_sealer',
-                        'grasping_retractor', 'monopolar_curved_scissors',
-                        'other_medical_instruments'
-                ]):
-                    if class_id == 0:
-                        continue
-                    target_mask = (instruments_mask == class_id) * 255
-                    if target_mask.sum() != 0:
-                        cris_data_list.append(
-                            self.get_one_sample(root_dir, image_file, image_path,
-                                        cris_masks_dir, target_mask,
-                                        class_name))
-
-        with open(os.path.join(root_dir, cris_data_file), 'w') as f:
-            json.dump(cris_data_list, f)
-
-    def get_phrase_information(self,):
-        pass
-
-    def get_img_and_seg_paths(self,):
-        #😉 Currently I am only dealing with binary segmentation and multiclass segmentation, I would add in parts segmentation, later 
-        self.img_paths = []
-        self.mask_paths = []
-        if self.split == 'train':
-            dataset_num = 8
-        elif self.split == 'test':
-            dataset_num = 10
-
-        for i in range(1, dataset_num + 1):
-            # if self.segmentation == "full_segmentation":
-            image_dir = os.path.join(self.root_dir, 'instrument_dataset_{}'.format(i),
-                                    'images')
-            print('process: {} ...'.format(image_dir))
-            masks_dir = os.path.join(self.root_dir,
-                                        'instrument_dataset_{}'.format(i),
-                                        'instruments_masks')
-            if not os.path.exists(masks_dir):
-                os.makedirs(masks_dir)
-            image_files = os.listdir(image_dir)
-            image_files.sort()
-            for image_file in image_files:
-                print(image_file)
-                image_path = sorted(os.path.join(image_dir, image_file))
-                seg_path = sorted(os.path.join(masks_dir, image_file))
-                self.img_paths.append(image_path)
-                self.mask_paths.append(seg_path)
-    
-    def get_ids(self,):
-        self.img_ids = [*range(len(self.img_paths) )]
-
-    

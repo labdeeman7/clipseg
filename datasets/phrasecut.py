@@ -270,7 +270,9 @@ class PhraseCut(object):
     def load_sample(self, sample_i, j): #😉 load_samples.
         # print(sample_i)
         # print(j)
-        img_ref_data = self.refvg_loader.get_img_ref_data(sample_i) #😉  loader get reference data?🙋‍♂️ Not sure what reference data is 
+        img_ref_data = self.refvg_loader.get_img_ref_data(sample_i) #😉  loader get reference data?🙋‍♂️ Not sure what reference data is
+
+        # print(img_ref_data) 
 
         polys_phrase0 = img_ref_data['gt_Polygons'][j] #😉 polygon segmentation. 
         phrase = img_ref_data['phrases'][j] #😉 phrases. 
@@ -335,19 +337,25 @@ class PhraseCut(object):
                 seg = torch.zeros_like(seg)
 
         if self.with_visual:
-            # find a corresponding visual image
+            # find a corresponding visual support image
+            #😉 In the original paper, for every phrase, you have a unique visual prompt that corresponds and its segmentation
+            # find a corresponding visual image.
+            #😉 Masks comes in here. "amd" acts as a delimiter.
+            #  text - only a text mask, we cannot do one-shot when mask is text. 
+            #😉 separate - sepaerate the text and mask, as different support inputs. Do not blend. Useful for the original one-shot that was suggested. 
+            #😉 there are others. crop, blur, highlight etc. 
             if phrase in self.samples_by_phrase and len(self.samples_by_phrase[phrase]) > 1: #😉 samples_by_phrase gotten from the dataset.
                 idx = torch.randint(0, len(self.samples_by_phrase[phrase]), (1,)).item()
                 other_sample = self.samples_by_phrase[phrase][idx]
                 #print(other_sample)
-                img_s, seg_s, _ = self.load_sample(*other_sample)
+                img_s, seg_s, _ = self.load_sample(*other_sample) #👌Authors get the support_img_and_mask
 
                 from datasets.utils import blend_image_segmentation
 
                 if self.mask in {'separate', 'text_and_separate'}:
                     # assert img.shape[1:] == img_s.shape[1:] == seg_s.shape == seg.shape[1:]
                     add_phrase = [phrase] if self.mask == 'text_and_separate' else []
-                    vis_s = add_phrase + [img_s, seg_s, True] #😉 if with_visual, phrase in samples_by_phrase and mask is either separate or text-and_separate,  vis_s is [phrase, img_s, seg_s, True] , img_s = Augmented_segmentation_image, seg_s = segmentation, 🙋‍♂️True not sure.   
+                    vis_s = add_phrase + [img_s, seg_s, True] #😉 if with_visual, phrase in samples_by_phrase and mask is either separate or text-and_separate,vis_s is [phrase, img_s, seg_s, True] , img_s = support_img, seg_s = support_seg, 🙋‍♂️True not sure.   
                 else:
                     if self.mask.startswith('text_and_'):
                         mask_mode = self.mask[9:]
@@ -370,7 +378,7 @@ class PhraseCut(object):
                     vis_s = [phrase, vis_s, False]   #😉 if with_visual, unique_phrase, mask is text_and_, vis-s = [phrase, zeros_img, False]
                 else:
                     vis_s = [vis_s, False]  #😉 if with_visual, unique_phrase, mask is unknown, vis-s = [zeros_img, False]
-        else:  #😉 No visual
+        else:  #😉 No visual, just normal ref expression segmentation training. and not training on phrase cut+. We are interested in this.
             assert self.mask == 'text'  #😉 mask must be text. 
             vis_s = [phrase] #😉 if no visual, vis_s = [phrase]
         

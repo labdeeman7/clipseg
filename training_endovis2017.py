@@ -5,7 +5,6 @@ import yaml
 import math
 import os
 import sys
-import wandb
 
 from general_utils import log
 
@@ -76,13 +75,6 @@ def main():
 
     config = training_config_from_cli_args() #😉it is a config style work, and we get config from cli it has to do with yaml files too. I need to use it and understand it later.
 
-    #😉 logging while training
-    #2 wandb
-    experiment = wandb.init(project='clipseg_phrasecut', resume='allow', anonymous='must')
-    experiment.config.update(
-        config
-    )  
-
     val_interval, best_val_loss, best_val_score = config.val_interval, float('inf'), float('-inf') #😉 Intializations. 
 
     model_cls = get_attribute(config.model) #😉 model class from attribute
@@ -132,7 +124,7 @@ def main():
 
 
     save_only_trainable = True #🙋‍♂️ Not sure what this is. 👌 It is used s a flag for the save function. if true, we do not save all the model, but only the trainable parts of the model, whih wiuld be the and any custom trainable parts. 
-    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=1) #🛑 remeber to change back.
+    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=1)
 
     # disable config when hyperparam. opt. to avoid writing logs.
     tracker_config = config if not config.hyperparameter_optimization else None
@@ -148,34 +140,34 @@ def main():
                 # 2. Check alignment with CLIP
 
                 # randomly mix text and visual support conditionals
-                if config.mix: #😉 A form of data augmentation. 🙋‍♂️ is this phrasecut++? 👌THis is for when we are mixing the text and image conditionals. Not dat augmentation per se but ya, it is close. 
+                if config.mix: #😉 A form of data augmentation. 🙋‍♂️ is this phrasecut++? 👌THis is for when we are mixing the text and image conditionals. Not data augmentation. but it is close. 
  
-                    assert config.mask.startswith('text_and') #😉 Assert statements good.
+                    assert config.mask.startswith('text_and') 
 
                     with autocast_fn(): #😉 Context for mixed precision.
                         # data_x[1] = text label
-                        prompts = model.sample_prompts(data_x[1]) #😉 remeber data_x[0] is img, data_x[1] is the phrase prompt
+                        prompts = model.sample_prompts(data_x[1]) #😉 remeber data_x[0] is img, data_x[1] is the prompt
 
                         # model.clip_model()
 
                         text_cond = model.compute_conditional(prompts) #😉 Text conditional to train. Can be class names, heck it should be class names or a form of the class names. 
                         if model.__class__.__name__ == 'CLIPDensePredTMasked': #😉 DensePredTMasked also requires a msk input.
                             # when mask=='separate'
-                            visual_s_cond, _, _ = model.visual_forward_masked(data_x[2].cuda(), data_x[3].cuda()) #😉 you need to be careful with the yaml file. x[2] is support image, x[3] is support mask. This is oneshot done in the model.
+                            visual_s_cond, _, _ = model.visual_forward_masked(data_x[2].cuda(), data_x[3].cuda()) #😉 you need to be careful with the yaml file. x[2] is support image, x[3] is support mask. The one shot done in the model.
                         else:
                             # data_x[2] = visual prompt
-                            visual_s_cond, _, _ = model.visual_forward(data_x[2].cuda()) #😉 This is the already input masked support image and mask 
+                            visual_s_cond, _, _ = model.visual_forward(data_x[2].cuda()) #😉 This is the already input masked support image and mask
 
                     max_txt = config.mix_text_max if config.mix_text_max is not None else 1  #🙋‍♂️ we are mixing the vecotrs of txt and visuals. I am guessing this is a ratio of how much text and visuals are to be mixed
                     batch_size = text_cond.shape[0] #😉 okay, the amount of text_conditionals is the same as the batch. Each image, has its own text conditionals.
 
                     # sample weights for each element in batch #🙋‍♂️ Sample weights? where are sample weights needed and why?  
-                    text_weights = torch.distributions.Uniform(config.mix_text_min, max_txt).sample((batch_size,))[:, None] #🙋‍♂️ I am not sure what is going on here. #👌 We have a uniform sample between mintext value and maxtext value and then We get n samples where n is the batch size. We are trying to mix the text and the image, and we want various amounts of mix. 
+                    text_weights = torch.distributions.Uniform(config.mix_text_min, max_txt).sample((batch_size,))[:, None] #🙋‍♂️ I am not sure what is going on here. #👌 We have a uniform sample between mintext value and maxtext value and then We get n samples where n is the batch size. We are trying to mix the text and the image, and we want various amounts of mix.  
                     text_weights = text_weights.cuda() #😉 The weights to cuda. 
 
                     #😉 Dataset dependent code. 
                     if dataset.__class__.__name__ == 'PhraseCut': #😉If we are using phrasecut, 
-                        # give full weight to text where support_image is invalid
+                        # give full weight to text where support_image is invalid.
                         visual_is_valid = data_x[4] if model.__class__.__name__ == 'CLIPDensePredTMasked' else data_x[3] #🙋‍♂️ Not sure, I need to check what is given by the dataset. But it seems we can have as much as 4 outputs from the dataset. Image is 3, but I am not sure what 4 is. Maybe it is a masked image? 
                         text_weights = torch.max(text_weights[:,0], 1 - visual_is_valid.float().cuda()).unsqueeze(1) #😉 text weghts an either be the rrent amount, or the 1-visual is valid for phrasecut dataset.
 
@@ -187,19 +179,19 @@ def main():
                     if model.__class__.__name__ == 'CLIPDensePredTMasked': #😉if we still have masks for one shot segmentation, 
                         # compute conditional vector using CLIP masking
                         with autocast_fn(): #😉 Autocast context.
-                            assert config.mask == 'separate' #🙋‍♂️ What is separate, what are the possible values for mask?
-                            cond, _, _ = model.visual_forward_masked(data_x[1].cuda(), data_x[2].cuda()) #😉The conditional vector, is computed with CLIP masking in mind. 🙋‍♂️I thought image was x[3] now it seems it is x[2] again. I need to check the dataset then go through all the code again. 
+                            assert config.mask == 'separate' #🙋‍♂️ What is separate.👌 in one shot, separate the mask and the visual support prompt. Do not combine them in the beggining of the pipeline.  
+                            cond, _, _ = model.visual_forward_masked(data_x[1].cuda(), data_x[2].cuda()) #😉The conditional vector, is computed with CLIP masking in mind. 
                     else:
-                        cond = data_x[1] #🙋‍♂️ conditional data is 1 now, I am so confised. No visual forward, no sample prompts, cond is just is. 
+                        cond = data_x[1] #😉 this is default. cond is a simple phrase
                         if isinstance(cond, torch.Tensor):
                             cond = cond.cuda()
 
                 with autocast_fn(): #😉 Finally some of the training is about to be done.
                     visual_q = None #😉 Visual q is the output from the CLIP visual encoder. 
 
-                    pred, visual_q, _, _  = model(data_x[0].cuda(), cond, return_features=True) #😉 Pred is the predictions. 🙋‍♂️Why is is data_x[0] the input?
+                    pred, visual_q, _, _  = model(data_x[0].cuda(), cond, return_features=True) #😉 Pred is the predictions. x[0] always the image, cond is either a phrase, or a vector that has been combined, etc. 
 
-                    loss = loss_fn(pred, data_y[0].cuda())  #😉 Calculate loss.
+                    loss = loss_fn(pred, data_y[0].cuda())  #😉 Calculate loss. binary cross entropy in this case.
 
                     if torch.isnan(loss) or torch.isinf(loss): #😉 Loss errors. 🙋‍♂️What could cause these? 
                         # skip if loss is nan
@@ -221,18 +213,13 @@ def main():
 
                 if lr_scheduler is not None:
                     lr_scheduler.step() #😉 Nice. 
-                    if i % config.log_freq == 0: #😉 logs current learning rates. I saw no logs in the previous loop.
+                    if i % 2000 == 0: #😉 logs current learning rates.
                         current_lr = [g['lr'] for g in opt.param_groups][0]
                         log.info(f'current lr: {current_lr:.5f} ({len(opt.param_groups)} parameter groups)')
-                        log.info(f'step [{i}]/[{max_iterations}]\t Loss {loss.item()}  ')
 
                 logger.iter(i=i, loss=loss)  #😉 class logger that was written to support "with statements"             
                 i += 1
-                print(f"step is {i}")
-                experiment.log({
-                                'step': i,
-                                'loss': loss.item(),
-                            }) 
+
                 if i >= max_iterations: #😉 If u is greater than this max_iterations. 
 
                     if not isfile(join(logger.base_path, 'weights.pth')): #😉 If we do not have this file,
@@ -242,8 +229,8 @@ def main():
                     sys.exit(0)
 
                     
-                if config.save_checkpoint_iterations and i % config.save_checkpoint_freq == 0: 
-                    logger.save_weights(only_trainable=save_only_trainable, weight_file=f'weights_{i}.pth') #😉 Save only trainable variables for all weight variables. 
+                if config.checkpoint_iterations is not None and i in config.checkpoint_iterations: #😉 Save only trainable variables for all weight variables. 
+                    logger.save_weights(only_trainable=save_only_trainable, weight_file=f'weights_{i}.pth')
 
                 
                 if val_interval is not None and i % val_interval == val_interval - 1: #😉 if val_interval is 5, i is 20, then 20 % 5 == 4, so every val_interval essentially just not the 0th one.   

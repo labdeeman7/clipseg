@@ -134,12 +134,15 @@ dmypy.json
 #third_party
 third_party/
 
+#env
 .CLIPSEG/
 
+#dataset
 images/
-
 datasets/PhraseCut/VGPhraseCut_v0
-
-logs/
-
 datasets/Endovis2017/
+
+#logs
+logs/
+wandb/
+

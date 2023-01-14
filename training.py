@@ -218,8 +218,8 @@ def main():
                     scaler.step(opt)
                     scaler.update()
                 
-                step_duration = time.time - end
-                end = time.time
+                step_duration = time.time() - end
+                end = time.time()
                 if lr_scheduler is not None:
                     lr_scheduler.step() #😉 Nice. 
                     if i % config.log_freq == 0: #😉 logs current learning rates. I saw no logs in the previous loop.

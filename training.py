@@ -71,6 +71,7 @@ def main():
     #😉 logging while training
     #2 wandb
     experiment = wandb.init(project='clipseg_phrasecut', resume='allow', anonymous='must')
+    wandb.tensorboard.patch(save=False)
     experiment.config.update(
         config
     )  
@@ -86,12 +87,12 @@ def main():
 
     dataset = dataset_cls(**dataset_args) #😉 dataset from cls
 
-    print(f'Train dataset {dataset.__class__.__name__} (length: {len(dataset)})') #😉logs train dataset
+    log.info(f'Train dataset {dataset.__class__.__name__} (length: {len(dataset)})') #😉logs train dataset
 
     if val_interval is not None: #😉 a way to control if vaidation would be done.
         dataset_val_args = {k[4:]: v for k,v in config.items() if k.startswith('val_') and k != 'val_interval'} #😉 validation args. 
         _, dataset_val_args, _ = filter_args(dataset_val_args, inspect.signature(dataset_cls).parameters) #😉 validation args. 
-        print('val args', {**dataset_args, **{'split': 'val', 'aug': 0}, **dataset_val_args})
+        log.info('val args', {**dataset_args, **{'split': 'val', 'aug': 0}, **dataset_val_args})
 
         dataset_val = dataset_cls(**{**dataset_args, **{'split': 'val', 'aug': 0}, **dataset_val_args}) #😉 the val dataset.
 
@@ -111,7 +112,7 @@ def main():
     loss_fn = get_attribute(config.loss) #😉 an actual function from config.
 
     if config.amp:
-        print('Using AMP')
+        log.info('Using AMP')
         autocast_fn = autocast 
         scaler = GradScaler()
     else:
@@ -142,19 +143,18 @@ def main():
 
                 assert config.mask.startswith('text_and') #😉 Assert statements good.
 
-                with autocast_fn(): #😉 Context for mixed precision.
-                    # data_x[1] = text label
-                    prompts = model.sample_prompts(data_x[1]) #😉 remeber data_x[0] is img, data_x[1] is the phrase prompt
+                # data_x[1] = text label
+                prompts = model.sample_prompts(data_x[1]) #😉 remeber data_x[0] is img, data_x[1] is the phrase prompt
 
-                    # model.clip_model()
+                # model.clip_model()
 
-                    text_cond = model.compute_conditional(prompts) #😉 Text conditional to train. Can be class names, heck it should be class names or a form of the class names. 
-                    if model.__class__.__name__ == 'CLIPDensePredTMasked': #😉 DensePredTMasked also requires a msk input.
-                        # when mask=='separate'
-                        visual_s_cond, _, _ = model.visual_forward_masked(data_x[2].cuda(), data_x[3].cuda()) #😉 you need to be careful with the yaml file. x[2] is support image, x[3] is support mask. This is oneshot done in the model.
-                    else:
-                        # data_x[2] = visual prompt
-                        visual_s_cond, _, _ = model.visual_forward(data_x[2].cuda()) #😉 This is the already input masked support image and mask 
+                text_cond = model.compute_conditional(prompts) #😉 Text conditional to train. Can be class names, heck it should be class names or a form of the class names. 
+                if model.__class__.__name__ == 'CLIPDensePredTMasked': #😉 DensePredTMasked also requires a msk input.
+                    # when mask=='separate'
+                    visual_s_cond, _, _ = model.visual_forward_masked(data_x[2].cuda(), data_x[3].cuda()) #😉 you need to be careful with the yaml file. x[2] is support image, x[3] is support mask. This is oneshot done in the model.
+                else:
+                    # data_x[2] = visual prompt
+                    visual_s_cond, _, _ = model.visual_forward(data_x[2].cuda()) #😉 This is the already input masked support image and mask 
 
                 max_txt = config.mix_text_max if config.mix_text_max is not None else 1  #🙋‍♂️ we are mixing the vecotrs of txt and visuals. I am guessing this is a ratio of how much text and visuals are to be mixed
                 batch_size = text_cond.shape[0] #😉 okay, the amount of text_conditionals is the same as the batch. Each image, has its own text conditionals.
@@ -184,49 +184,33 @@ def main():
                     if isinstance(cond, torch.Tensor):
                         cond = cond.cuda()
 
-            with autocast_fn(): #😉 Finally some of the training is about to be done.
-                visual_q = None #😉 Visual q is the output from the CLIP visual encoder. 
+            visual_q = None #😉 Visual q is the output from the CLIP visual encoder. 
 
-                pred, visual_q, _, _  = model(data_x[0].cuda(), cond, return_features=True) #😉 Pred is the predictions. 🙋‍♂️Why is is data_x[0] the input?
+            pred, visual_q, _, _  = model(data_x[0].cuda(), cond, return_features=True) #😉 Pred is the predictions. 🙋‍♂️Why is is data_x[0] the input?
 
-                loss = loss_fn(pred, data_y[0].cuda())  #😉 Calculate loss.
+            loss = loss_fn(pred, data_y[0].cuda())  #😉 Calculate loss.
 
-                if torch.isnan(loss) or torch.isinf(loss): #😉 Loss errors. 🙋‍♂️What could cause these? 
-                    # skip if loss is nan
-                    log.info('encountered a nan or an -inf, stop this current loop')
-                    continue
+            if torch.isnan(loss.item()) or torch.isinf(loss.item()): #😉 Loss errors. 🙋‍♂️What could cause these? 
+                # skip if loss is nan
+                log.info('encountered a nan or an -inf, stop this current loop')
+                continue
 
             opt.zero_grad() #🙋‍♂️no grad scaler? 👌 Scaler is used when you wanna call loss.backwards, step and update on the loss. 
-
-            if scaler is None: #😉 Nice.
-                loss.backward()
-                opt.step()
-            else: #😉 Nice.
-                scaler.scale(loss).backward()
-                scaler.step(opt)
-                scaler.update()
+            loss.backward()
+            opt.step()    
             
             #logging
             step_duration = time.time() - end
             end = time.time()
             memory_info = torch.cuda.mem_get_info(torch.device("cuda:0"))
-            
-            if i % config.log_freq == 0: #😉 logs current learning rates. I saw no logs in the previous loop.
-                current_lr = [g['lr'] for g in opt.param_groups][0]
-                print(f'current lr: {current_lr:.5f} ({len(opt.param_groups)} parameter groups)')
-                print(f'step [{i}]/[{max_iterations}]\t Loss {float(loss.item())}  step_duration {step_duration} \
-                        free memory/available memory {memory_info[0]}/{memory_info[1]}')
-                experiment.log({
-                        'current_lr': current_lr,
-                    })
-
-
-            logger.iter(i=i, loss=float(loss.item()))  #😉 class logger that was written to support "with statements"             
+         
             i += 1
-            print(f"step is {i}")
+            log.info(f"step is {i}")
+            loss_value = loss.item().cpu()
+
             experiment.log({
                             'step': i,
-                            'loss': float(loss.item()),
+                            'loss': loss_value,
                             'epoch': epoch,
                             'time_per_step': step_duration,
                             'free_gpu_memory': memory_info[0],
@@ -246,34 +230,7 @@ def main():
                 logger.save_weights(only_trainable=save_only_trainable, weight_file=f'weights_{i}.pth') #😉 Save only trainable variables for all weight variables. 
 
             
-            if val_interval is not None and i % val_interval == val_interval - 1: #😉 if val_interval is 5, i is 20, then 20 % 5 == 4, so every val_interval essentially just not the 0th one.   
-
-                val_loss, val_scores, maximize = validate(model, dataset_val, config) #😉 Validation is done here after everything. Maximize is true if we save validation scores, else, it is false. 
-                
-                if len(val_scores) > 0: #😉 Val_scores are metrics, which we would need to save. 
-
-                    score_str = f', scores: ' + ', '.join(f'{k}: {v}' for k, v in val_scores.items()) #😉 They turn this to strings. 
-                    
-                    if maximize and val_scores[config.use_val_metric] > best_val_score: #😉if we save val scores, and the our metric is bettern than the best_val_score, then  
-                        logger.save_weights(only_trainable=save_only_trainable) #😉 We save weights again, and call it weights.pth. weights.pth s the best. 
-                        best_val_score = val_scores[config.use_val_metric] #😉best val score is updated. Note that it starts from -inf. 
-
-                    elif not maximize and val_scores[config.use_val_metric] < best_val_score: #😉 But it cannot be not maximize and we would have val scores.  Can the code even get here? #👌 Oh this is code, incase we had validations that want to be minimized instead of maximize. Our current works wants to always be maximized, but this is code for just in case.  
-                        logger.save_weights(only_trainable=save_only_trainable) #😉 We do the same thng as before by the way, but we are minizes.
-                        best_val_score = val_scores[config.use_val_metric] 
-
-                else: #😉 No validation scores. 
-                    score_str = ''
-                    # if no score is used, fall back to loss #😉 Use loss if no score. 
-                    if val_loss < best_val_loss:
-                        logger.save_weights(only_trainable=save_only_trainable)
-                        best_val_loss = val_loss
-                
-                print(f'Validation loss: {val_loss}' + score_str)
-                logger.iter(i=i, val_loss=val_loss, **val_scores)
-                model.train() #😉 swith the model from eval (doen in validate to ) to train
-
-        print('epoch complete') #😉 Nice. Lets try.
+        log.info('epoch complete') #😉 Nice. Lets try.
 
 
 if __name__ == '__main__':

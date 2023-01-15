@@ -245,11 +245,6 @@ class TrainingLogger(object):
         if config is not None:
             json.dump(config, open(join(self.base_path, 'config.json'), 'w'))
 
-    def iter(self, i, **kwargs):
-        if i % 100 == 0 and 'loss' in kwargs:
-            loss = kwargs['loss']
-            print(f'iteration {i}: loss {loss:.4f}')
-
     def save_weights(self, only_trainable=False, weight_file='weights.pth'):
         if self.model is None:
             raise AttributeError('You need to provide a model reference when initializing TrainingTracker to save weights.')
@@ -263,10 +258,4 @@ class TrainingLogger(object):
         
         torch.save(weight_dict, weights_path)
         log.info(f'Saved weights to {weights_path}')
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        """ automatically stop processes if used in a context manager """
-        pass        
+     

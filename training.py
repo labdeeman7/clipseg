@@ -207,8 +207,8 @@ def main():
 
                 if torch.isnan(loss) or torch.isinf(loss): #😉 Loss errors. 🙋‍♂️What could cause these? 
                     # skip if loss is nan
-                    log.warning('Training stopped due to inf/nan loss.')
-                    sys.exit(-1)
+                    log.info('encountered a nan or an -inf, stop this current loop')
+                    continue
 
             opt.zero_grad() #🙋‍♂️no grad scaler? 👌 Scaler is used when you wanna call loss.backwards, step and update on the loss. 
 

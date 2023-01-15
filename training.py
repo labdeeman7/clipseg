@@ -65,7 +65,6 @@ def validate(model, dataset, config): #😉the validate loop is here. I also thi
 
 
 def main():
-
     config = training_config_from_cli_args() #😉it is a config style work, and we get config from cli it has to do with yaml files too. I need to use it and understand it later.
 
     #😉 logging while training
@@ -103,9 +102,6 @@ def main():
         opt_args = {}
     opt = opt_cls(model.parameters(), lr=config.lr, **opt_args) #😉 optimizer object
 
-    
-    
-
     batch_size, max_iterations = config.batch_size, config.max_iterations #😉bs, iterations from config. 
 
     loss_fn = get_attribute(config.loss) #😉 an actual function from config.
@@ -119,7 +115,7 @@ def main():
 
 
     save_only_trainable = True #🙋‍♂️ Not sure what this is. 👌 It is used s a flag for the save function. if true, we do not save all the model, but only the trainable parts of the model, whih wiuld be the and any custom trainable parts. 
-    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=8) #🛑 remeber to change back.
+    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=2) #🛑 remeber to change back.
 
     epochs = math.ceil(max_iterations/ (len(dataset)/batch_size))
 

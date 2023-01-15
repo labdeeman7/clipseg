@@ -201,7 +201,7 @@ def main():
          
             i += 1
             print(f"step is {i}")
-            loss_value = loss.item().cpu()
+            loss_value = loss.item()
 
             experiment.log({
                             'step': i,

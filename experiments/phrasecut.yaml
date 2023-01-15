@@ -8,7 +8,7 @@ configuration:
   scorer: experiment_setup.score
   model: models.clipseg.CLIPDensePredT
 
-  lr_scheduler: cosine
+  lr_scheduler: null
   T_max: 20000
   eta_min: 0.0001
 

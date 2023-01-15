@@ -15,19 +15,10 @@ from functools import partial
 from os.path import expanduser, join, isfile, basename
 
 from torch.cuda.amp import autocast, GradScaler #😉used all the time.
-from torch.optim.lr_scheduler import LambdaLR #😉 Also a lr scheduler seems to be a normal thng.
 from contextlib import nullcontext 
 from torch.utils.data import DataLoader
 
 from general_utils import TrainingLogger, get_attribute, filter_args, log, training_config_from_cli_args
-
-#😉 Not sure what this does. it seems like a cosine learning rate. i,e a lr governed by the cosine function, but it then has warmup. Cosine function, starts from 1, so not sure how warmup helps.
-def cosine_warmup_lr(i, warmup=10, max_iter=90):
-    """ Cosine LR with Warmup """
-    if i < warmup: #😉if epoch is less than warmup, then we return,  🙋‍♂️epoch/warmup, so it is a time based learning rate decay?
-        return (i+1)/(warmup+1)
-    else:
-        return 0.5 + 0.5*math.cos(math.pi*(((i-warmup)/(max_iter- warmup)))) #😉 It is a cosine function. The higher the denominator the more the period
 
 
 def validate(model, dataset, config): #😉the validate loop is here. I also think I should save my validation, then write a test script from now on. Save metrics like the IoU, thhe correct classes etc in my validation. 
@@ -112,13 +103,8 @@ def main():
         opt_args = {}
     opt = opt_cls(model.parameters(), lr=config.lr, **opt_args) #😉 optimizer object
 
-    if config.lr_scheduler == 'cosine': #😉 learning rate scheduler, cosine. 
-        assert config.T_max is not None and config.eta_min is not None #🙋‍♂️ config. Tmax. not sure what this is. 
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, config.T_max, config.eta_min)  #😉 The cosine learning rate schediler.  
-    elif config.lr_scheduler == 'warmup_cosine':        
-        lr_scheduler = LambdaLR(opt, partial(cosine_warmup_lr, max_iter=(config.max_iterations), warmup=config.warmup)) #😉More about lr scheduler.
-    else:
-        lr_scheduler = None
+    
+    
 
     batch_size, max_iterations = config.batch_size, config.max_iterations #😉bs, iterations from config. 
 
@@ -224,16 +210,15 @@ def main():
             step_duration = time.time() - end
             end = time.time()
             memory_info = torch.cuda.mem_get_info(torch.device("cuda:0"))
-            if lr_scheduler is not None:
-                lr_scheduler.step() #😉 Nice. 
-                if i % config.log_freq == 0: #😉 logs current learning rates. I saw no logs in the previous loop.
-                    current_lr = [g['lr'] for g in opt.param_groups][0]
-                    print(f'current lr: {current_lr:.5f} ({len(opt.param_groups)} parameter groups)')
-                    print(f'step [{i}]/[{max_iterations}]\t Loss {float(loss.item())}  step_duration {step_duration} \
-                            free memory/available memory {memory_info[0]}/{memory_info[1]}')
-                    experiment.log({
-                            'current_lr': current_lr,
-                        })
+            
+            if i % config.log_freq == 0: #😉 logs current learning rates. I saw no logs in the previous loop.
+                current_lr = [g['lr'] for g in opt.param_groups][0]
+                print(f'current lr: {current_lr:.5f} ({len(opt.param_groups)} parameter groups)')
+                print(f'step [{i}]/[{max_iterations}]\t Loss {float(loss.item())}  step_duration {step_duration} \
+                        free memory/available memory {memory_info[0]}/{memory_info[1]}')
+                experiment.log({
+                        'current_lr': current_lr,
+                    })
 
 
             logger.iter(i=i, loss=float(loss.item()))  #😉 class logger that was written to support "with statements"             
@@ -275,7 +260,7 @@ def main():
 
                     elif not maximize and val_scores[config.use_val_metric] < best_val_score: #😉 But it cannot be not maximize and we would have val scores.  Can the code even get here? #👌 Oh this is code, incase we had validations that want to be minimized instead of maximize. Our current works wants to always be maximized, but this is code for just in case.  
                         logger.save_weights(only_trainable=save_only_trainable) #😉 We do the same thng as before by the way, but we are minizes.
-                        best_val_score = val_scores[config.use_val_metric]
+                        best_val_score = val_scores[config.use_val_metric] 
 
                 else: #😉 No validation scores. 
                     score_str = ''

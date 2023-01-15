@@ -37,7 +37,7 @@ def validate(model, dataset, config): #😉the validate loop is here. I also thi
     loss_fn = get_attribute(config.loss) #😉 Gets the loss_function function from its name.
 
     model.eval() 
-    model.to(device) #😉 Use model.to("device"), we like consistency.
+    model.cuda() #😉 Use model.to("device"), we like consistency.
 
     if metric_class is not None:
         metric = get_attribute(metric_class)() #😉 Use attribute to get the mettrics from a config. I think this is the way configs are used. they get attributes. 
@@ -47,8 +47,8 @@ def validate(model, dataset, config): #😉the validate loop is here. I also thi
         i, losses = 0, [] #😉 Nice, initialize them together. 
         for data_x, data_y in data_loader: #😉 Data loader output. It is just an image and text. 
 
-            data_x = [x.to(device) if isinstance(x, torch.Tensor) else x for x in data_x] 
-            data_y = [x.to(device) if isinstance(x, torch.Tensor) else x for x in data_y]
+            data_x = [x.cuda() if isinstance(x, torch.Tensor) else x for x in data_x] 
+            data_y = [x.cuda() if isinstance(x, torch.Tensor) else x for x in data_y]
 
             prompts = model.sample_prompts(data_x[1], prompt_list=('a photo of a {}',)) #😉 First get the prompt of the image, I guess data_x, is a list containing the information and the corresponding image.  
             pred, visual_q, _, _  = model(data_x[0], prompts, return_features=True) #😉 Validate model with image. Visual q is output of clip visual encoder, pred is final prediction.
@@ -85,10 +85,10 @@ def main():
     )  
 
     val_interval, best_val_loss, best_val_score = config.val_interval, float('inf'), float('-inf') #😉 Intializations. 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
     model_cls = get_attribute(config.model) #😉 model class from attribute
     _, model_args, _ = filter_args(config, inspect.signature(model_cls).parameters)#😉model args are filtered.
-    model = model_cls(**model_args).to(device) #😉 model class from  config.
+    model = model_cls(**model_args).cuda() #😉 model class from  config.
 
     dataset_cls = get_attribute(config.dataset)  #😉 dataset args from config
     _, dataset_args, _ = filter_args(config, inspect.signature(dataset_cls).parameters) #😉 dataset args filtered
@@ -165,23 +165,23 @@ def main():
                     text_cond = model.compute_conditional(prompts) #😉 Text conditional to train. Can be class names, heck it should be class names or a form of the class names. 
                     if model.__class__.__name__ == 'CLIPDensePredTMasked': #😉 DensePredTMasked also requires a msk input.
                         # when mask=='separate'
-                        visual_s_cond, _, _ = model.visual_forward_masked(data_x[2].to(device), data_x[3].to(device)) #😉 you need to be careful with the yaml file. x[2] is support image, x[3] is support mask. This is oneshot done in the model.
+                        visual_s_cond, _, _ = model.visual_forward_masked(data_x[2].cuda(), data_x[3].cuda()) #😉 you need to be careful with the yaml file. x[2] is support image, x[3] is support mask. This is oneshot done in the model.
                     else:
                         # data_x[2] = visual prompt
-                        visual_s_cond, _, _ = model.visual_forward(data_x[2].to(device)) #😉 This is the already input masked support image and mask 
+                        visual_s_cond, _, _ = model.visual_forward(data_x[2].cuda()) #😉 This is the already input masked support image and mask 
 
                 max_txt = config.mix_text_max if config.mix_text_max is not None else 1  #🙋‍♂️ we are mixing the vecotrs of txt and visuals. I am guessing this is a ratio of how much text and visuals are to be mixed
                 batch_size = text_cond.shape[0] #😉 okay, the amount of text_conditionals is the same as the batch. Each image, has its own text conditionals.
 
                 # sample weights for each element in batch #🙋‍♂️ Sample weights? where are sample weights needed and why?  
                 text_weights = torch.distributions.Uniform(config.mix_text_min, max_txt).sample((batch_size,))[:, None] #🙋‍♂️ I am not sure what is going on here. #👌 We have a uniform sample between mintext value and maxtext value and then We get n samples where n is the batch size. We are trying to mix the text and the image, and we want various amounts of mix. 
-                text_weights = text_weights.to(device) #😉 The weights to cuda. 
+                text_weights = text_weights.cuda() #😉 The weights to cuda. 
 
                 #😉 Dataset dependent code. 
                 if dataset.__class__.__name__ == 'PhraseCut': #😉If we are using phrasecut, 
                     # give full weight to text where support_image is invalid
                     visual_is_valid = data_x[4] if model.__class__.__name__ == 'CLIPDensePredTMasked' else data_x[3] #🙋‍♂️ Not sure, I need to check what is given by the dataset. But it seems we can have as much as 4 outputs from the dataset. Image is 3, but I am not sure what 4 is. Maybe it is a masked image? 
-                    text_weights = torch.max(text_weights[:,0], 1 - visual_is_valid.float().to(device)).unsqueeze(1) #😉 text weghts an either be the rrent amount, or the 1-visual is valid for phrasecut dataset.
+                    text_weights = torch.max(text_weights[:,0], 1 - visual_is_valid.float().cuda()).unsqueeze(1) #😉 text weghts an either be the rrent amount, or the 1-visual is valid for phrasecut dataset.
 
                 cond = text_cond * text_weights + visual_s_cond * (1 - text_weights) #😉 Finally, the conditional becomes a vetor that is based on the text wieghts with the text conditional and the visual weights and the visual conditional.
 
@@ -192,18 +192,18 @@ def main():
                     # compute conditional vector using CLIP masking
                     with autocast_fn(): #😉 Autocast context.
                         assert config.mask == 'separate' #🙋‍♂️ What is separate, what are the possible values for mask?
-                        cond, _, _ = model.visual_forward_masked(data_x[1].to(device), data_x[2].to(device)) #😉The conditional vector, is computed with CLIP masking in mind. 🙋‍♂️I thought image was x[3] now it seems it is x[2] again. I need to check the dataset then go through all the code again. 
+                        cond, _, _ = model.visual_forward_masked(data_x[1].cuda(), data_x[2].cuda()) #😉The conditional vector, is computed with CLIP masking in mind. 🙋‍♂️I thought image was x[3] now it seems it is x[2] again. I need to check the dataset then go through all the code again. 
                 else:
                     cond = data_x[1] #🙋‍♂️ conditional data is 1 now, I am so confised. No visual forward, no sample prompts, cond is just is. 
                     if isinstance(cond, torch.Tensor):
-                        cond = cond.to(device)
+                        cond = cond.cuda()
 
             with autocast_fn(): #😉 Finally some of the training is about to be done.
                 visual_q = None #😉 Visual q is the output from the CLIP visual encoder. 
 
-                pred, visual_q, _, _  = model(data_x[0].to(device), cond, return_features=True) #😉 Pred is the predictions. 🙋‍♂️Why is is data_x[0] the input?
+                pred, visual_q, _, _  = model(data_x[0].cuda(), cond, return_features=True) #😉 Pred is the predictions. 🙋‍♂️Why is is data_x[0] the input?
 
-                loss = loss_fn(pred, data_y[0].to(device))  #😉 Calculate loss.
+                loss = loss_fn(pred, data_y[0].cuda())  #😉 Calculate loss.
 
                 if torch.isnan(loss) or torch.isinf(loss): #😉 Loss errors. 🙋‍♂️What could cause these? 
                     # skip if loss is nan
@@ -223,7 +223,7 @@ def main():
             #logging
             step_duration = time.time() - end
             end = time.time()
-            memory_info = torch.cuda.mem_get_info(device)
+            memory_info = torch.cuda.mem_get_info(torch.device("cuda:0"))
             if lr_scheduler is not None:
                 lr_scheduler.step() #😉 Nice. 
                 if i % config.log_freq == 0: #😉 logs current learning rates. I saw no logs in the previous loop.

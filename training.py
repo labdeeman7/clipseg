@@ -133,7 +133,7 @@ def main():
 
 
     save_only_trainable = True #🙋‍♂️ Not sure what this is. 👌 It is used s a flag for the save function. if true, we do not save all the model, but only the trainable parts of the model, whih wiuld be the and any custom trainable parts. 
-    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=8) #🛑 remeber to change back.
+    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=4) #🛑 remeber to change back.
 
     epochs = math.ceil(max_iterations/ (len(dataset)/batch_size))
 

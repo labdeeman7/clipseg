@@ -85,12 +85,12 @@ def main():
 
     dataset = dataset_cls(**dataset_args) #😉 dataset from cls
 
-    log.info(f'Train dataset {dataset.__class__.__name__} (length: {len(dataset)})') #😉logs train dataset
+    print(f'Train dataset {dataset.__class__.__name__} (length: {len(dataset)})') #😉logs train dataset
 
     if val_interval is not None: #😉 a way to control if vaidation would be done.
         dataset_val_args = {k[4:]: v for k,v in config.items() if k.startswith('val_') and k != 'val_interval'} #😉 validation args. 
         _, dataset_val_args, _ = filter_args(dataset_val_args, inspect.signature(dataset_cls).parameters) #😉 validation args. 
-        log.info('val args', {**dataset_args, **{'split': 'val', 'aug': 0}, **dataset_val_args})
+        print('val args', {**dataset_args, **{'split': 'val', 'aug': 0}, **dataset_val_args})
 
         dataset_val = dataset_cls(**{**dataset_args, **{'split': 'val', 'aug': 0}, **dataset_val_args}) #😉 the val dataset.
 
@@ -107,7 +107,7 @@ def main():
     loss_fn = get_attribute(config.loss) #😉 an actual function from config.
 
     if config.amp:
-        log.info('Using AMP')
+        print('Using AMP')
         autocast_fn = autocast 
         scaler = GradScaler()
     else:
@@ -187,7 +187,7 @@ def main():
 
             if torch.isnan(loss.item()) or torch.isinf(loss.item()): #😉 Loss errors. 🙋‍♂️What could cause these? 
                 # skip if loss is nan
-                log.info('encountered a nan or an -inf, stop this current loop')
+                print('encountered a nan or an -inf, stop this current loop')
                 continue
 
             opt.zero_grad() #🙋‍♂️no grad scaler? 👌 Scaler is used when you wanna call loss.backwards, step and update on the loss. 
@@ -200,7 +200,7 @@ def main():
             memory_info = torch.cuda.mem_get_info(torch.device("cuda:0"))
          
             i += 1
-            log.info(f"step is {i}")
+            print(f"step is {i}")
             loss_value = loss.item().cpu()
 
             experiment.log({
@@ -225,7 +225,7 @@ def main():
                 logger.save_weights(only_trainable=save_only_trainable, weight_file=f'weights_{i}.pth') #😉 Save only trainable variables for all weight variables. 
 
             
-        log.info('epoch complete') #😉 Nice. Lets try.
+        print('epoch complete') #😉 Nice. Lets try.
 
 
 if __name__ == '__main__':

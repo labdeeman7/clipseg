@@ -75,7 +75,7 @@ individual_configurations:
 # important ones
 
 
-- {name: rd64-uni, version: 'ViT-B/16', reduce_dim: 64, with_visual: True, negative_prob: 0.2, mix: True, mix_text_max: 0.5}
+- {name: rd64-uni, version: 'ViT-B/16', reduce_dim: 64, with_visual: True, negative_prob: 0.2, mix: True, mix_text_max: 0.5} #with mix been true, aug_crop been true this is phrasecut+. To train on phrasecut, we need to use just text. 
 
 # this was accedentally trained using old mask
 - {name: rd128-vit16-phrasecut, version: 'ViT-B/16', reduce_dim: 128, mask: text_and_blur3_highlight01}

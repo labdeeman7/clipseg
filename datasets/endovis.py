@@ -84,7 +84,6 @@ class Endovis2017(object):
         self.mask = mask
         self.aug_crop = aug_crop
         self.root_dir = root_dir
-        self.training_style  = training_style # training_style can be refereing expression segmentation (RES), RES+ referring image segmentation with some 
         
         if aug_color:
             self.aug_color = transforms.Compose([
@@ -154,9 +153,10 @@ class Endovis2017(object):
         img, seg, phrase = self.load_sample(sample_i) #😉 Image, segmentation and phrase. 🙋‍♂️ I am not sure what sample_i and j stand for. 
 
         if self.with_visual: 
-            #😉 In the original paper, for every phrase, you can have visual prompts that corresponds with this phrase and the segmentation of the visual
-            # find a corresponding visual image.
-            #😉 Masks comes in here. "amd" acts as a delimiter.
+            #😉 In the original paper, for every phrase, you can have visual prompts that corresponds with a phrase and the segmentation of the visual prompy
+            #😉 Masks comes in here. "and" in the msk name acts as a delimiter. text for text only. text and separate, we have an input of text and a separate visual input.
+            #😉 For the phrasecut.yaml, we have text_and_crop_blur_highlight352. So we have the text first. Text is always on its own. The bone of contention is whether we combine the mask of the visual prompt, with the visual prompt or not. If it is separate, we do not combine them if it is not separate we combine them. 
+            #😉 These all affect the output. We do not mix text and visuals here. They can only be mixed in vector form. But we decide whether we apply segmentation in the beginning of the pipeline or inside the decoder here. if it is separate, it is inside the decoder, if it is not separate like the phrascut.yaml, then our dataset also produces a masked copy of the image. 
             #  text - only a text mask, we cannot do one-shot when mask is text. 
             #😉 separate - sepaerate the text and mask, as different support inputs. Do not blend. Useful for the original one-shot that was suggested. 
             #😉 there are others. crop, blur, highlight etc. 

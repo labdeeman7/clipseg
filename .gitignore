@@ -141,6 +141,7 @@ third_party/
 images/
 datasets/PhraseCut/VGPhraseCut_v0
 datasets/Endovis2017/
+Endovis2017.zip
 
 #logs
 logs/

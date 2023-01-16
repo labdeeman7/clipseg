@@ -115,9 +115,11 @@ def main():
 
 
     save_only_trainable = True #🙋‍♂️ Not sure what this is. 👌 It is used s a flag for the save function. if true, we do not save all the model, but only the trainable parts of the model, whih wiuld be the and any custom trainable parts. 
-    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=2) #🛑 remeber to change back.
+    data_loader = DataLoader(dataset, batch_size=batch_size, num_workers=2) #🛑 remember to change back.
 
-    epochs = math.ceil(max_iterations/ (len(dataset)/batch_size))
+    epochs = math.ceil(max_iterations/ (len(dataset)/batch_size)) # approximately, 4 epoch. 20k/ 80,000/16. Original paper used batchsize 64, so it would be approximately 20 epochs. Why has my epoch value not increased? I should print epochs
+    print(f"amount of epochs is {epochs}")
+    print(f"len(dataset) is {len(dataset)}")
 
     # disable config when hyperparam. opt. to avoid writing logs.
     tracker_config = config if not config.hyperparameter_optimization else None

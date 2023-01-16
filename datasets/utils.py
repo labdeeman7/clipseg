@@ -1,6 +1,7 @@
 
 import numpy as np
 import torch
+import torchvision
 
 #😉 cool. the one shot blending herer. depending on the modes. 
 def blend_image_segmentation(img, seg, mode, image_size=224):
@@ -48,6 +49,11 @@ def blend_image_segmentation(img, seg, mode, image_size=224):
         out = [np.stack([seg[:, :]]*3).astype('float32')]
     elif mode == 'concat':
         out = [np.concatenate([img, seg[None, :, :]]).astype('float32')]
+    elif mode == 'resize':
+        # print(f"img.shape {img.shape}")
+        out = [torchvision.transforms.functional.resize(img, (image_size, image_size), interpolation=torchvision.transforms.InterpolationMode.NEAREST).numpy()]
+        
+         
     elif mode == 'image_only':
         out = [img.astype('float32')]
     elif mode == 'image_black':

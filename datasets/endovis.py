@@ -17,6 +17,8 @@ import cv2
 from skimage.draw import polygon2mask
 import json
 
+
+
 #😉 Assuming that I have a json file with all the information about the classes in each picture
 # There is a reason why there is a find crop, and it is a different function, the authors are trying to ensure that the crop covers a lot of the wanted class. This is why segmentation is taken. I need to check the paper again. 
 def random_crop_slices(origin_size, target_size):
@@ -71,10 +73,10 @@ class Endovis2017(object):
 
     def __init__(self, split, image_size=400, negative_prob=0, aug=None, aug_color=False, aug_crop=True,
                  min_size=0, remove_classes=None, with_visual=False, only_visual=False, mask=None, 
-                 root_dir= "./datasets/endovis2017/cropped_train"):
+                 root_dir= "./datasets/Endovis2017/"):
         super().__init__()
 
-        self.info = json.load(open(join(root_dir, '{}.json'.format(split))))
+        self.info = json.load(open(join(root_dir, f'clipseg_{split}.json')))
         self.negative_prob = negative_prob
         self.image_size = image_size
         self.with_visual = with_visual #🙋‍♂️ I am guessing that with visual refers to using a visual prompt along with the text prompt. This is one-shot segmentation
@@ -84,6 +86,12 @@ class Endovis2017(object):
         self.mask = mask
         self.aug_crop = aug_crop
         self.root_dir = root_dir
+        self.all_possible_instrument_classes = [
+                    'background', 'bipolar_forceps', 'prograsp_forceps',
+                    'large_needle_driver', 'vessel_sealer',
+                    'grasping_retractor', 'monopolar_curved_scissors',
+                    'other_medical_instruments'
+        ]
         
         if aug_color:
             self.aug_color = transforms.Compose([
@@ -96,7 +104,7 @@ class Endovis2017(object):
         std = [0.229, 0.224, 0.225]
         self.normalize = transforms.Normalize(mean, std)
 
-        self.sample_ids = [v["sample_id"] for k,v in self.info]
+        self.sample_ids = [sample_ref["sample_id"] for sample_ref in self.info]
 
         self.seg_path = join(expanduser('~/datasets/PhraseCut/VGPhraseCut_v0/images/'))
         self.img_path = join(expanduser('~/datasets/PhraseCut/VGPhraseCut_v0/segmentation/'))
@@ -108,12 +116,23 @@ class Endovis2017(object):
         
         sample_ref_data = self.info[sample_i] #😉  loader get reference data?🙋‍♂️ Not sure what reference data is 
 
-        phrase = sample_ref_data['phrases'] #😉 phrases. 
+        phrases = sample_ref_data['phrases'] #😉 phrases.
+        idx = torch.randint(0, len(phrases), (1,)).item() 
+        phrase = phrases[idx]
         mask_path = sample_ref_data['mask_path']
         img_path = sample_ref_data['img_path']
+        # img_path = img_path[1:]
+
+        # print(self.root_dir)
+        # print(img_path)
+        # print(mask_path)
+        
          
-        seg = cv2.imread(mask_path) #😉 seg, 
+        seg =  np.array(cv2.imread(join(self.root_dir, mask_path), cv2.IMREAD_GRAYSCALE)) #😉 seg
         img = np.array(Image.open(join(self.root_dir, img_path))) #😉 img
+
+        # print(img.shape)
+        # print(seg.shape)
 
         min_shape = min(img.shape[:2]) #😉 min_shape. 
 
@@ -138,11 +157,12 @@ class Endovis2017(object):
 
         # img = img.permute([2,0, 1])
         img = img / 255.0 #😉 divide image
+        seg = seg / 255.0
 
         if self.aug_color is not None: #😉 augment if needed the color. 
             img = self.aug_color(img)
 
-        img = self.normalize(img) #😉 normlize
+        # img = self.normalize(img) #😉 normlize #🛑 remeber to change this back
 
         return img, seg, phrase #😉 Image, segmentation, phrase, #😉 No support images done here or masking of the support images.   
 
@@ -150,7 +170,23 @@ class Endovis2017(object):
  
         sample_i= self.sample_ids[i]
 
-        img, seg, phrase = self.load_sample(sample_i) #😉 Image, segmentation and phrase. 🙋‍♂️ I am not sure what sample_i and j stand for. 
+        img, seg, phrase = self.load_sample(sample_i) #😉 Image, segmentation and phrase. 🙋‍♂️ I am not sure what sample_i and j stand for.
+        # print(f"img.shape {img.shape}")
+        # print(f"seg.shape {seg.shape}") 
+
+        sample_ref_data = self.info[sample_i]
+        sample_instrument_name = sample_ref_data["instrument_class_name"]
+              
+
+        if self.negative_prob > 0 and sample_instrument_name: #😉 Negative sampling enabled for instrument segmentation
+            sample_instruments_in_image = sample_ref_data["instruments_in_image"] 
+            instruments_not_in_image = [instrument for instrument in self.all_possible_instrument_classes if instrument not in sample_instruments_in_image ]       
+
+            if torch.rand((1,)).item() < self.negative_prob: #😉 probability for negative probability.
+                idx = torch.randint(0, len(instruments_not_in_image), (1,)).item()
+                new_phrase = instruments_not_in_image[idx]
+                phrase = new_phrase
+                seg = torch.zeros_like(seg)
 
         if self.with_visual: 
             #😉 In the original paper, for every phrase, you can have visual prompts that corresponds with a phrase and the segmentation of the visual prompy
@@ -161,9 +197,20 @@ class Endovis2017(object):
             #😉 separate - sepaerate the text and mask, as different support inputs. Do not blend. Useful for the original one-shot that was suggested. 
             #😉 there are others. crop, blur, highlight etc. 
             sample_ref_data = self.info[sample_i]
-            
-            img_s = cv2.imread(sample_ref_data["visual_prompt_img_path"]) 
-            seg_s = cv2.imread(sample_ref_data["visual_prompt_mask_path"])
+            # print(len(sample_ref_data["visual_prompt_img_path"]))
+            idx = torch.randint(0, len(sample_ref_data["visual_prompt_img_path"]), (1,)).item()
+            # print(idx)
+            # print(sample_ref_data)
+            # print(join(self.root_dir, sample_ref_data["visual_prompt_img_path"][idx]))
+
+            img_s = np.array(cv2.imread(join(self.root_dir, sample_ref_data["visual_prompt_img_path"][idx]) ) ) #using 0 right now, because there is only one visual prompt.
+            seg_s = np.array(cv2.imread(join(self.root_dir, sample_ref_data["visual_prompt_mask_path"][idx]), cv2.IMREAD_GRAYSCALE))
+
+            img_s = torch.from_numpy(img_s).permute(2,0,1).float()
+            seg_s = torch.from_numpy(seg_s)
+
+            # print(f'img_s.shape{img_s.shape}')
+            # print(f'seg_s.shape{seg_s.shape}')
 
             from datasets.utils import blend_image_segmentation #This is the one_shot segmentation. 
 
@@ -180,6 +227,8 @@ class Endovis2017(object):
                     label_add = []
 
                 masked_img_s = torch.from_numpy(blend_image_segmentation(img_s, seg_s, mode=mask_mode, image_size=self.image_size)[0])
+                masked_img_s = masked_img_s/255
+                # masked_img_s = self.normalize(masked_img_s)
                 vis_s = label_add + [masked_img_s, True] #😉 if with_visual, phrase in samples_by_phrase and mask is not  separate or text-and_separate, vis_s is [phrase, masked_img_s, True], masked_img_s = a blend of the image and segmentation, 🙋‍♂️True not sure
                 
            
@@ -191,7 +240,7 @@ class Endovis2017(object):
 
         data_x = (img,) + tuple(vis_s)
 
-        return data_x, (seg, torch.zeros(0), i) #😉 So the output is data_x and (the segmentation, [], i) 
+        return data_x, (seg, torch.zeros(0), i) #😉 So the output is data_x and (the segmentation, [], i)  data_x is data, and seg is segmentation. 
         #😉 data_x is made up of [img, vis_s]. vis_s changes depending on the condition.  
         #😉 if with_visual, phrase in samples_by_phrase and mask is either separate or text-and_separate,  vis_s is [phrase, img_s, seg_s, True] , img_s = Augmented_segmentation_image, seg_s = segmentation, 🙋‍♂️True not sure.   
         #😉 if with_visual, phrase in samples_by_phrase and mask is not  separate or text-and_separate, vis_s is [phrase, masked_img_s, True], masked_img_s = a blend of the image and segmentation, 🙋‍♂️True not sure

@@ -146,4 +146,5 @@ Endovis2017.zip
 #logs
 logs/
 wandb/
+store_pred/
 

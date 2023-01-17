@@ -6,6 +6,7 @@ import json
 import yaml
 import time
 import sys
+import os
 
 from general_utils import log
 
@@ -135,7 +136,6 @@ def score(config, train_checkpoint_id, train_config):
     train_config = AttributeDict(json.load(open(f'logs/{train_checkpoint_id}/config.json')))
 
     cp_str = f'_{config.iteration_cp}' if config.iteration_cp is not None else ''
-
 
     model_cls = get_attribute(train_config['model'])
 
@@ -286,6 +286,8 @@ def score(config, train_checkpoint_id, train_config):
     if config.test_dataset == 'phrasecut':
         from datasets.phrasecut import PhraseCut
 
+        print(f"config {config}")
+
         only_visual = config.only_visual is not None and config.only_visual
         with_visual = config.with_visual is not None and config.with_visual
 
@@ -301,23 +303,83 @@ def score(config, train_checkpoint_id, train_config):
         shift = config.shift if 'shift' in config else 0
 
 
-        with torch.no_grad():
-
+        with torch.no_grad():   
             i, losses = 0, []
             for i_all, (data_x, data_y) in enumerate(loader):
+                print(i_all)
+                
                 data_x = [v.cuda(non_blocking=True) if isinstance(v, torch.Tensor) else v for v in data_x]
                 data_y = [v.cuda(non_blocking=True) if isinstance(v, torch.Tensor) else v for v in data_y]
 
                 pred, _, _, _  = model(data_x[0], data_x[1], return_features=True)
+                
                 metric.add([pred + shift], data_y)
 
                 i += 1
-                if config.max_iterations and i >= config.max_iterations:
+
+                print(len(data_y))
+                store_pred(pred.detach().cpu().numpy(), data_y[0].detach().cpu().numpy(), 
+                            data_y[2].detach().cpu().numpy(), config.batch_size )
+
+                # if config.max_iterations and i >= config.max_iterations: #🛑 Remember to change this back. 
+                if i>1:
                     break                
 
         key_prefix = config['name'] if 'name' in config else 'phrasecut'      
         return {key_prefix: metric.scores()}
         #return {key_prefix: {k: v for k, v in zip(metric.names(), metric.value())}}
+
+    if config.test_dataset == 'Endovis2017':
+        from datasets.endovis import Endovis2017
+
+        print(f"config Endovis2017 {config}")
+
+        only_visual = config.only_visual is not None and config.only_visual
+        with_visual = config.with_visual is not None and config.with_visual
+
+        dataset = Endovis2017('test', 
+                            image_size=train_config.image_size,
+                            mask=config.mask, 
+                            with_visual=with_visual, only_visual=only_visual, aug_crop=False, 
+                            aug_color=False)
+
+        loader = DataLoader(dataset, batch_size=config.batch_size, num_workers=2, shuffle=False, drop_last=False)
+        metric = get_attribute(config.metric)(resize_pred=True, **metric_args)
+
+        if not os.path.exists(config.save_pred_dir):
+            os.makedirs(config.save_pred_dir)
+            os.makedirs(join (config.save_pred_dir, "gt"))
+            os.makedirs(join (config.save_pred_dir, "pred"))
+            
+
+        with torch.no_grad():   
+            i, losses = 0, []
+            for i_all, (data_x, data_y) in enumerate(loader):
+                # print(f"data_x is {data_x}")
+                
+                data_x = [v.cuda(non_blocking=True) if isinstance(v, torch.Tensor) else v for v in data_x]
+                data_y = [v.cuda(non_blocking=True) if isinstance(v, torch.Tensor) else v for v in data_y]
+
+                pred, _, _, _  = model(data_x[0], data_x[1], return_features=True)
+                
+                metric.add([pred], data_y)
+
+                i += 1
+
+                # print(len(data_y))
+                store_pred(pred.detach().cpu().numpy(), data_y[0].detach().cpu().numpy(), 
+                            data_y[2].detach().cpu().numpy(), store_dir = config.save_pred_dir )
+
+                if config.max_iterations and i >= config.max_iterations: #🛑 Remember to change this back. 
+                # if i>10:
+                    break                
+
+        key_prefix = config['name'] if 'name' in config else 'phrasecut'   
+
+        with open(os.path.join(config.save_pred_dir, "results.json"), 'w') as f:
+            json.dump(metric.scores(), f) 
+        return {key_prefix: metric.scores()}
+        #return {key_prefix: {k: v for k, v in zip(metric.names(), metric.value())}}    
 
     if config.test_dataset == 'pascal_zs':
         from third_party.JoEm.model.metric import Evaluator
@@ -442,7 +504,44 @@ def score(config, train_checkpoint_id, train_config):
         raise ValueError('invalid test dataset')
 
 
+def store_pred(batch_pred, batch_gt, i_s,  store_dir="./store_pred/phrasecut/" ):
+    from os.path import join
+    from PIL import Image
 
+    # print(f"i_s is {i_s}")
+    # print(f"batch_pred.shape {batch_pred.shape}")
+    # print(f"batch_gt.shape {batch_gt.shape}")
+
+    for pos, val in enumerate(i_s):
+        
+        gt_dir = join(store_dir, "gt")
+        pred_dir = join(store_dir, "pred")
+        
+        gt_path = join(gt_dir, f"{val}_gt.png")
+        pred_path = join(pred_dir, f"{val}_pred.png")
+
+        # print(f"gt_path is {gt_path}")
+        # print(f"pred_path is {pred_path}")
+
+        gt = np.squeeze(batch_gt[pos])        
+        pred = np.squeeze(batch_pred[pos]) 
+
+        # print(f"gt.shape {gt.shape}")
+        # print(f"pred.shape {pred.shape}")
+
+        im_gt = Image.fromarray(gt* 255 )
+        im_gt = im_gt.convert("L")
+        im_gt.save(gt_path)
+
+        im_pred = Image.fromarray(pred * 255)
+        im_pred = im_pred.convert("L")
+        im_pred.save(pred_path)
+
+    return 
+    #get info json. 
+    # make folder for pred to store.  
+    # use i to get the sample name
+    # save pred ab  
 
 
 

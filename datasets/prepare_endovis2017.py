@@ -94,7 +94,7 @@ sample_id = 0
 
 
 def get_one_sample(root_dir, image_file, image_path, save_dir, mask,
-                   class_name, visual_prompt_img_dir, visual_prompt_mask_dir, instruments_in_image, instrument_class_name):
+                   class_name, visual_prompt_img_dir, visual_prompt_mask_dir, instruments_in_image, instrument_class_name, problem_type):
 
     global sample_id
 
@@ -109,6 +109,7 @@ def get_one_sample(root_dir, image_file, image_path, save_dir, mask,
     clipseg_data = {
         "sample_id": sample_id,
         "class_name": class_name,
+        "problem_type": problem_type,
         "instrument_class_name": instrument_class_name, #have a value if it is instrument segmentation if not be null. 
         'instruments_in_image': instruments_in_image, #always have a value. 
         'img_path': image_path.replace(root_dir, ''),
@@ -164,6 +165,7 @@ def process(root_dir, clipseg_data_file, split='train'):
             image_path = os.path.join(image_dir, image_file)
 
             # instruments
+            problem_type = "instrument"
             instruments_mask_file = image_path.replace(
                 'images', 'instruments_masks').replace('.jpg', '.png')
             instruments_mask = cv2.imread(instruments_mask_file)
@@ -192,9 +194,10 @@ def process(root_dir, clipseg_data_file, split='train'):
                         get_one_sample(root_dir, image_file, image_path,
                                        clipseg_masks_dir, target_mask,
                                        class_name, class_vis_prompt_img_dir, 
-                                       class_vis_prompt_mask_dir, instruments_in_image, instrument_class_name))
+                                       class_vis_prompt_mask_dir, instruments_in_image, instrument_class_name, problem_type))
 
             # binary
+            problem_type = "binary"
             binary_mask_file = image_path.replace('images',
                                                   'binary_masks').replace(
                                                       '.jpg', '.png')
@@ -213,9 +216,10 @@ def process(root_dir, clipseg_data_file, split='train'):
                         get_one_sample(root_dir, image_file, image_path,
                                        clipseg_masks_dir, target_mask,
                                        class_name, class_vis_prompt_img_dir, 
-                                       class_vis_prompt_mask_dir, instruments_in_image, instrument_class_name))
+                                       class_vis_prompt_mask_dir, instruments_in_image, instrument_class_name, problem_type))
 
             # parts
+            problem_type = "parts"
             parts_mask_file = image_path.replace('images',
                                                  'parts_masks').replace(
                                                      '.jpg', '.png')
@@ -238,7 +242,7 @@ def process(root_dir, clipseg_data_file, split='train'):
                         get_one_sample(root_dir, image_file, image_path,
                                        clipseg_masks_dir, target_mask,
                                        class_name, class_vis_prompt_img_dir, 
-                                       class_vis_prompt_mask_dir, instruments_in_image, instrument_class_name))
+                                       class_vis_prompt_mask_dir, instruments_in_image, instrument_class_name, problem_type))
 
             
 

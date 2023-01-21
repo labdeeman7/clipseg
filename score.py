@@ -198,7 +198,7 @@ def score(config, train_checkpoint_id, train_config):
 
             eval_start_t = time.time()
 
-            loader = DataLoader(dataset, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
+            loader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False, drop_last=False)
 
             assert config.batch_size is None or config.batch_size == 1, 'When PFE Dataset is used, batch size must be 1'
 
@@ -297,7 +297,7 @@ def score(config, train_checkpoint_id, train_config):
                             with_visual=with_visual, only_visual=only_visual, aug_crop=False, 
                             aug_color=False)
 
-        loader = DataLoader(dataset, batch_size=config.batch_size, num_workers=2, shuffle=False, drop_last=False)
+        loader = DataLoader(dataset, batch_size=config.batch_size, num_workers=1, shuffle=False, drop_last=False)
         metric = get_attribute(config.metric)(resize_pred=True, **metric_args)
 
         shift = config.shift if 'shift' in config else 0
@@ -508,17 +508,22 @@ def store_pred(batch_pred, batch_gt, i_s,  store_dir="./store_pred/phrasecut/" )
     from os.path import join
     from PIL import Image
 
+    info = json.load(open('./datasets/Endovis2017/clipseg_test.json'))
     # print(f"i_s is {i_s}")
     # print(f"batch_pred.shape {batch_pred.shape}")
     # print(f"batch_gt.shape {batch_gt.shape}")
 
     for pos, val in enumerate(i_s):
+        sample_problem_type = info[val]["problem_type"]
         
-        gt_dir = join(store_dir, "gt")
-        pred_dir = join(store_dir, "pred")
+        gt_dir = join(store_dir, "gt", sample_problem_type)
+        pred_dir = join(store_dir, "pred", sample_problem_type)
         
-        gt_path = join(gt_dir, f"{val}_gt.png")
-        pred_path = join(pred_dir, f"{val}_pred.png")
+        gt_path = join(gt_dir, f"{val}.png")
+        pred_path = join(pred_dir, f"{val}.png")
+
+        gt_path_npy = join(gt_dir, f"{val}.npy")
+        pred_path_npy = join(pred_dir, f"{val}.npy")
 
         # print(f"gt_path is {gt_path}")
         # print(f"pred_path is {pred_path}")
@@ -536,6 +541,10 @@ def store_pred(batch_pred, batch_gt, i_s,  store_dir="./store_pred/phrasecut/" )
         im_pred = Image.fromarray(pred * 255)
         im_pred = im_pred.convert("L")
         im_pred.save(pred_path)
+
+        np.save(gt_path_npy, gt) 
+        np.save(pred_path_npy, pred) 
+
 
     return 
     #get info json. 

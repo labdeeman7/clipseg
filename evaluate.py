@@ -3,6 +3,10 @@ import cv2
 import argparse
 import numpy as np
 from tqdm import tqdm
+import json
+from os.path import join
+from torch.nn import functional as nnf 
+import torch
 
 original_height, original_width = 1080, 1920
 height, width = 1024, 1280
@@ -62,127 +66,109 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
 
-    arg('--test_path',
+    arg('--dataset_path',
         type=str,
         default=
-        '/jmain02/home/J2AD019/exk01/zxz35-exk01/data/cambridge-1/EndoVis2017/cropped_test',
-        help='path where train images with ground truth are located')
+        './datasets/Endovis2017/',
+        help='path where test images with ground truth are located')
     arg('--pred_path',
         type=str,
         default=
-        '/jmain02/home/J2AD019/exk01/zxz35-exk01/data/cambridge-1/CRIS/exp/endovis2017/v1_0/score',
+        './store_pred/Endovis2017/',
         help='path with predictions')
     arg('--problem_type',
         type=str,
         default='parts',
-        choices=['binary', 'parts', 'instruments'])
+        choices=['binary', 'parts', 'instrument'])
     arg('--vis', action='store_true')
     args = parser.parse_args()
 
     result_dice = []
     result_jaccard = []
 
+    class_size = (352, 352) 
+
+    mask_dir = join(args.dataset_path, "cropped_test")
+
+    all_dict = json.load(open(join(args.dataset_path, "clipseg_all_data_dict.json"))) 
+    instrument_dict = json.load(open(join(args.dataset_path, "clipseg_instrument_dict.json"))) 
+    parts_dict = json.load(open(join(args.dataset_path,  "clipseg_parts_dict.json"))) 
+    binary_dict  = json.load(open(join(args.dataset_path, "clipseg_binary_dict.json"))) 
+
+
+    evaluate_dir = args.pred_path
+    evaluate_gt = join(evaluate_dir, "gt", args.problem_type)
+    evaluate_pred = join(evaluate_dir, "pred", args.problem_type)
+    # print(f" evaluate_gt {evaluate_gt}")
+    # print(f" evaluate_pred {evaluate_pred}")
+
+
     if args.problem_type == 'binary':
         class_name_list = ['background', 'instrument']
         factor = binary_factor
+        evaluate_dict = binary_dict  
     elif args.problem_type == 'parts':
         class_name_list = ['background', 'shaft', 'wrist', 'claspers']
         factor = parts_factor
-    elif args.problem_type == 'instruments':
+        evaluate_dict = parts_dict
+    elif args.problem_type == 'instrument':
         class_name_list = [
             'background', 'bipolar_forceps', 'prograsp_forceps',
             'large_needle_driver', 'vessel_sealer', 'grasping_retractor',
             'monopolar_curved_scissors', 'other_medical_instruments'
         ]
         factor = instruments_factor
+        evaluate_dict = instrument_dict
 
-    # palette
-    if args.vis:
-        eval_dir = os.path.join(args.pred_path.replace('/score', '/eval_vis'))
-        if not os.path.exists(eval_dir):
-            os.makedirs(eval_dir)
-        palette_list = [(255, 128, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255),
-                        (0, 255, 255), (255, 0, 255), (255, 255, 0),
-                        (0, 128, 255)]
-        palette = np.zeros((8, height, width, 3))
-        for i in range(8):
-            for j in range(3):
-                palette[i][:, :, j] = palette_list[i][j]
+    # print(f"factor {factor}")  
 
-    # evaluate
-    if 'train' in args.test_path:
-        dataset_num = 8
-    elif 'test' in args.test_path:
-        dataset_num = 10
-    for instrument_id in range(1, dataset_num + 1):
-        instrument_dataset_name = 'instrument_dataset_{}'.format(instrument_id)
-        file_dir = os.path.join(args.test_path, instrument_dataset_name,
-                                '{}_masks'.format(args.problem_type))
-        if args.vis:
-            image_dir = os.path.join(args.test_path, instrument_dataset_name,
-                                     'images')
-        for file_name in tqdm(os.listdir(file_dir),
-                              desc=instrument_dataset_name):
-            file_id = file_name.split('.')[0]
+  
+    i = 0
+    for seq_file_name, ref_data in evaluate_dict.items():
+        if args.problem_type == "instrument":
+            folder_name = "instruments" #made a mistake.
+        else:
+            folder_name =  args.problem_type   
+        
+        file_name = seq_file_name.split('_')[-1]
+        seq_name = seq_file_name.split('_')[-2]
+        seq_name = f"instrument_dataset_{seq_name}"
+        mask_path = join(mask_dir, seq_name, f"{folder_name}_masks", f"{file_name}.png")
+        y_true = cv2.imread(mask_path, 0).astype(np.uint8)
+        y_true = np.expand_dims(y_true, (0,1))
+        # print(f"{torch.from_numpy(y_true).shape} y_true.shape")
+        y_true = nnf.interpolate(torch.from_numpy(y_true), class_size, mode='nearest').numpy()
 
-            file_path = os.path.join(file_dir, file_name)
-            y_true = cv2.imread(file_path, 0).astype(np.uint8)
+        # print(f"mask_dir {mask_dir}")
+        
+        pred_image = np.zeros([len(class_name_list), class_size[0], class_size[1]]) 
+        # print(pred_image.shape)
+        # print(file_name)
+        # print(seq_name)
 
-            if args.vis:
-                if 'cropped_train' in args.test_path:
-                    image_path = os.path.join(image_dir,
-                                              '{}.jpg'.format(file_id))
-                elif 'cropped_test' in args.test_path:
-                    image_path = os.path.join(image_dir,
-                                              '{}.png'.format(file_id))
-                image = cv2.imread(image_path)
+        for data in ref_data:
+            sample_id = data[0]
+            class_name = data[1]
+            idx = class_name_list.index(class_name)
+            # print(f"{sample_id} sample_id")
+            # print(f"{class_name} class_name")
+            # print(f"{idx} idx")
 
-                gt_mask = y_true // factor
-                show = np.zeros_like(image)
-                for i_h in range(height):
-                    for i_w in range(width):
-                        show[i_h, i_w] = palette[gt_mask[i_h, i_w], i_h, i_w]
-                # show = np.take(palette, gt_mask)
-                gt_vis_image = image * 0.5 + show * 0.5
+            pred = np.load(join(evaluate_pred, f"{sample_id}.npy"))
 
-            pred_image_list = []
-            for class_name in class_name_list:
-                pred_file_name = os.path.join(
-                    args.pred_path,
-                    'score-{}-{}-{}.npz'.format(instrument_dataset_name,
-                                                file_id, class_name))
-                if os.path.exists(pred_file_name):
-                    pred_dict = np.load(pred_file_name)
-                    pred_image = cv2.warpAffine(pred_dict.get('pred'),
-                                                pred_dict.get('mat'),
-                                                (width, height),
-                                                flags=cv2.INTER_CUBIC,
-                                                borderValue=0.)
-                else:
-                    pred_image = np.zeros_like(y_true)
-                pred_image_list.append(pred_image)
-            pred_image = np.array(pred_image_list)
-            y_pred = np.argmax(pred_image, axis=0)
+            pred_image[idx, :, :] = pred
 
-            if args.vis:
-                show = np.zeros_like(image)
-                for i_h in range(height):
-                    for i_w in range(width):
-                        show[i_h, i_w] = palette[y_pred[i_h, i_w], i_h, i_w]
-                pred_vis_image = image * 0.5 + show * 0.5
+        y_pred = np.argmax(pred_image, axis=0)
 
-                vis_image = np.concatenate([gt_vis_image, pred_vis_image],
-                                           axis=1)
-                cv2.imwrite(
-                    '{}/{}_{}_{}.jpg'.format(eval_dir, args.problem_type,
-                                             instrument_dataset_name, file_id),
-                    vis_image)
+        y_pred = y_pred * factor
+        y_pred = y_pred.astype(np.uint8)
 
-            y_pred = y_pred * factor
-            y_pred = y_pred.astype(np.uint8)
+        result_jaccard += [general_jaccard(y_true, y_pred)]
+        result_dice += [general_dice(y_true, y_pred)]
 
-            result_jaccard += [general_jaccard(y_true, y_pred)]
-            result_dice += [general_dice(y_true, y_pred)]
+        # print(result_jaccard)
+        # print(result_dice)
+        # break
 
     print('Jaccard (IoU): mean={:.2f}, std={:.4f}'.format(
         np.mean(result_jaccard) * 100, np.std(result_jaccard)))

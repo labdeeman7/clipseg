@@ -80,6 +80,10 @@ def main():
     _, model_args, _ = filter_args(config, inspect.signature(model_cls).parameters)#😉model args are filtered.
     model = model_cls(**model_args).cuda() #😉 model class from  config.
 
+    if config.pretrained:
+        print("using pretrained weights")
+        model.load_state_dict(torch.load(config.pretrained_path), strict=False)
+
     dataset_cls = get_attribute(config.dataset)  #😉 dataset args from config
     _, dataset_args, _ = filter_args(config, inspect.signature(dataset_cls).parameters) #😉 dataset args filtered
 

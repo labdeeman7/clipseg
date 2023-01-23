@@ -516,41 +516,24 @@ def store_pred(batch_pred, batch_gt, i_s,  store_dir="./store_pred/phrasecut/" )
     for pos, val in enumerate(i_s):
         sample_problem_type = info[val]["problem_type"]
         
-        gt_dir = join(store_dir, "gt", sample_problem_type)
         pred_dir = join(store_dir, "pred", sample_problem_type)
-
-        if not os.path.exists(gt_dir):
-            os.makedirs(gt_dir)
 
         if not os.path.exists(pred_dir):
             os.makedirs(pred_dir)    
         
-        gt_path = join(gt_dir, f"{val}.png")
         pred_path = join(pred_dir, f"{val}.png")
 
-        gt_path_npy = join(gt_dir, f"{val}.npy")
         pred_path_npy = join(pred_dir, f"{val}.npy")
 
         # print(f"gt_path is {gt_path}")
         # print(f"pred_path is {pred_path}")
-
-        gt = np.squeeze(batch_gt[pos])        
+      
         pred = np.squeeze(batch_pred[pos]) 
 
         # print(f"gt.shape {gt.shape}")
         # print(f"pred.shape {pred.shape}")
 
-        im_gt = Image.fromarray(gt* 255 )
-        im_gt = im_gt.convert("L")
-        im_gt.save(gt_path)
-
-        im_pred = Image.fromarray(pred * 255)
-        im_pred = im_pred.convert("L") #this is what is covering my buttocks. convert L. 
-        im_pred.save(pred_path)
-
-        np.save(gt_path_npy, gt) 
         np.save(pred_path_npy, pred) 
-
 
     return 
     #get info json. 

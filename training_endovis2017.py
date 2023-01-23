@@ -192,7 +192,7 @@ def main():
             visual_q = None #😉 Visual q is the output from the CLIP visual encoder.
 
             print(f"data_x[0].shape{data_x[0].shape}") 
-            print(f"cond.shape{cond.shape}")
+            # print(f"cond.shape{cond.shape}")
 
             pred, visual_q, _, _  = model(data_x[0].cuda(), cond, return_features=True) #😉 Pred is the predictions. 🙋‍♂️Why is is data_x[0] the input?
 

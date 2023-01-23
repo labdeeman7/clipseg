@@ -8,14 +8,15 @@ from os.path import join
 #😉 A photo of is added to the sentence in the code. 
 #😉 The only thing that we migth want to change is using two or more instruments as a class if this is available. 
 #😉 Visual prompt img
+
 class2ref = {
     'background': {
-      'phrases': ['background', 'body tissues', 'organs'],
+      'phrases': ['body tissues'],
       'visual_prompt_img': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg','sample_6.jpg' ], 
       'visual_prompt_mask': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg','sample_6.jpg'], 
     },
     'instrument': {
-      'phrases': ['instrument', 'medical instrument', 'tool', 'medical tool'],
+      'phrases': ['instrument'],
       'visual_prompt_img': ['bipolar_forceps.jpg', 'prograsp_forceps.jpg',
                     'large_needle_driver.jpg', 'vessel_sealer.jpg',
                     'grasping_retractor.jpg', 'monopolar_curved_scissors.jpg'], 
@@ -25,20 +26,17 @@ class2ref = {
     },
 
     'shaft': {
-      'phrases': ['shaft', 'instrument shaft', 'tool shaft', 'instrument body',
-        'tool body', 'instrument handle', 'tool handle'],
+      'phrases': ['shaft'],
       'visual_prompt_img': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg'], 
       'visual_prompt_mask': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg',], 
     },      
     'wrist': {
-      'phrases': ['wrist', 'instrument wrist', 'tool wrist', 'instrument neck',
-        'tool neck', 'instrument hinge', 'tool hinge'],
+      'phrases': ['wrist'],
       'visual_prompt_img': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg'], 
       'visual_prompt_mask': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg'], 
     },
     'claspers': {
-      'phrases': ['claspers', 'instrument claspers', 'tool claspers', 'instrument head',
-        'tool head'],
+      'phrases': ['claspers'],
       'visual_prompt_img': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg','sample_6.jpg'], 
       'visual_prompt_mask': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg','sample_6.jpg'], 
     },
@@ -54,7 +52,7 @@ class2ref = {
       'visual_prompt_mask': ['prograsp_forceps.jpg'], 
     },
     'large_needle_driver': {
-      'phrases': ['large needle driver', 'needle driver'],
+      'phrases': ['needle driver'],
       'visual_prompt_img': ["needle_driver.jpg"], 
       'visual_prompt_mask': ["needle_driver.jpg"], 
     },
@@ -74,17 +72,85 @@ class2ref = {
       'visual_prompt_mask': ['monopolar_curved_scissors.jpg'], 
     },
     'other_medical_instruments': {
-      'phrases': ['other instruments', 'other tools', 'other medical instruments',
-        'other medical tools'],
+      'phrases': ['other instruments'],
       'visual_prompt_img': ['other_medical_instruments.jpg'], #😉 There is no support image for this. Hence we need to rely on the text description, How do we describe other? 
       'visual_prompt_mask': ['other_medical_instruments.jpg'], 
-    },
-    # # mult_instruments: '{
-    #     'phrases': [],
-    #     'visual_prompt_img': [], 
-    #   'visual_prompt_mask': [], 
-    # # }'  
+    }
 }
+
+# testing to check if having different class names helps.
+# class2ref = {
+#     'background': {
+#       'phrases': ['background', 'body tissues', 'organs'],
+#       'visual_prompt_img': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg','sample_6.jpg' ], 
+#       'visual_prompt_mask': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg','sample_6.jpg'], 
+#     },
+#     'instrument': {
+#       'phrases': ['instrument', 'medical instrument', 'tool', 'medical tool'],
+#       'visual_prompt_img': ['bipolar_forceps.jpg', 'prograsp_forceps.jpg',
+#                     'large_needle_driver.jpg', 'vessel_sealer.jpg',
+#                     'grasping_retractor.jpg', 'monopolar_curved_scissors.jpg'], 
+#       'visual_prompt_mask': ['bipolar_forceps.jpg', 'prograsp_forceps.jpg',
+#                     'large_needle_driver.jpg', 'vessel_sealer.jpg',
+#                     'grasping_retractor.jpg', 'monopolar_curved_scissors.jpg'], 
+#     },
+
+#     'shaft': {
+#       'phrases': ['shaft', 'instrument shaft', 'tool shaft', 'instrument body',
+#         'tool body', 'instrument handle', 'tool handle'],
+#       'visual_prompt_img': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg'], 
+#       'visual_prompt_mask': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg',], 
+#     },      
+#     'wrist': {
+#       'phrases': ['wrist', 'instrument wrist', 'tool wrist', 'instrument neck',
+#         'tool neck', 'instrument hinge', 'tool hinge'],
+#       'visual_prompt_img': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg'], 
+#       'visual_prompt_mask': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg'], 
+#     },
+#     'claspers': {
+#       'phrases': ['claspers', 'instrument claspers', 'tool claspers', 'instrument head',
+#         'tool head'],
+#       'visual_prompt_img': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg','sample_6.jpg'], 
+#       'visual_prompt_mask': ['sample_1.jpg', 'sample_2.jpg', 'sample_3.jpg', 'sample_4.jpg', 'sample_5.jpg','sample_6.jpg'], 
+#     },
+        
+#     'bipolar_forceps': {
+#       'phrases': ['bipolar forceps'],
+#       'visual_prompt_img': ['bipolar_forceps.jpg'], 
+#       'visual_prompt_mask': ['bipolar_forceps.jpg'], 
+#     },
+#     'prograsp_forceps': {
+#       'phrases': ['prograsp forceps'],
+#       'visual_prompt_img': ['prograsp_forceps.jpg'], 
+#       'visual_prompt_mask': ['prograsp_forceps.jpg'], 
+#     },
+#     'large_needle_driver': {
+#       'phrases': ['large needle driver', 'needle driver'],
+#       'visual_prompt_img': ["needle_driver.jpg"], 
+#       'visual_prompt_mask': ["needle_driver.jpg"], 
+#     },
+#     'vessel_sealer': {
+#       'phrases': ['vessel sealer'],
+#       'visual_prompt_img': ["vessel_sealer.jpg"], 
+#       'visual_prompt_mask': ["vessel_sealer.jpg"], 
+#     },
+#     'grasping_retractor': {
+#       'phrases': ['grasping retractor'],
+#       'visual_prompt_img': ['grasping_retractor.jpg'], 
+#       'visual_prompt_mask': ['grasping_retractor.jpg'], 
+#     },
+#     'monopolar_curved_scissors': {
+#       'phrases': ['monopolar curved scissors'],
+#       'visual_prompt_img': ['monopolar_curved_scissors.jpg'], 
+#       'visual_prompt_mask': ['monopolar_curved_scissors.jpg'], 
+#     },
+#     'other_medical_instruments': {
+#       'phrases': ['other instruments', 'other tools', 'other medical instruments',
+#         'other medical tools'],
+#       'visual_prompt_img': ['other_medical_instruments.jpg'], #😉 There is no support image for this. Hence we need to rely on the text description, How do we describe other? 
+#       'visual_prompt_mask': ['other_medical_instruments.jpg'], 
+#     }
+# }
 
 
 binary_factor = 255

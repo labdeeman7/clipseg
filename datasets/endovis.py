@@ -119,15 +119,7 @@ class Endovis2017(object):
 
         phrases = sample_ref_data['phrases'] #😉 phrases.
         
-        if self.mode == "test":
-            idx = 0 #To choose the first phrase.
-        else:    
-            idx = torch.randint(0, len(phrases), (1,)).item() 
-
-        if sample_ref_data['class_name'] == "background": #😉 I need to solve this problem with the background.
-            idx = 2
-
-        phrase = phrases[idx]
+        phrase = phrases[0]
         mask_path = sample_ref_data['mask_path']
         img_path = sample_ref_data['img_path']
         # img_path = img_path[1:]

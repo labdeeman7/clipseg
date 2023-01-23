@@ -7,4 +7,4 @@
 
 source /users/${USER}/.bashrc
 source activate CLIPSEG
-python training_endovis2017.py endovis2017.yaml 0
+python training_endovis2017.py endovis2017.yaml 1

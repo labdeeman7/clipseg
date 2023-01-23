@@ -341,7 +341,7 @@ def score(config, train_checkpoint_id, train_config):
                             image_size=train_config.image_size,
                             mask=config.mask, 
                             with_visual=with_visual, only_visual=only_visual, aug_crop=False, 
-                            aug_color=False)
+                            aug_color=False, mode="test")
 
         loader = DataLoader(dataset, batch_size=config.batch_size, num_workers=2, shuffle=False, drop_last=False)
         metric = get_attribute(config.metric)(resize_pred=True, **metric_args)
@@ -518,6 +518,12 @@ def store_pred(batch_pred, batch_gt, i_s,  store_dir="./store_pred/phrasecut/" )
         
         gt_dir = join(store_dir, "gt", sample_problem_type)
         pred_dir = join(store_dir, "pred", sample_problem_type)
+
+        if not os.path.exists(gt_dir):
+            os.makedirs(gt_dir)
+
+        if not os.path.exists(pred_dir):
+            os.makedirs(pred_dir)    
         
         gt_path = join(gt_dir, f"{val}.png")
         pred_path = join(pred_dir, f"{val}.png")
@@ -539,7 +545,7 @@ def store_pred(batch_pred, batch_gt, i_s,  store_dir="./store_pred/phrasecut/" )
         im_gt.save(gt_path)
 
         im_pred = Image.fromarray(pred * 255)
-        im_pred = im_pred.convert("L")
+        im_pred = im_pred.convert("L") #this is what is covering my buttocks. convert L. 
         im_pred.save(pred_path)
 
         np.save(gt_path_npy, gt) 

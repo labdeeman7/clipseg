@@ -73,7 +73,7 @@ class Endovis2017(object):
 
     def __init__(self, split, image_size=400, negative_prob=0, aug=None, aug_color=False, aug_crop=True,
                  min_size=0, remove_classes=None, with_visual=False, only_visual=False, mask=None, 
-                 root_dir= "./datasets/Endovis2017/"):
+                 root_dir= "./datasets/Endovis2017/", mode="train"):
         super().__init__()
 
         self.info = json.load(open(join(root_dir, f'clipseg_{split}.json')))
@@ -108,16 +108,25 @@ class Endovis2017(object):
 
         self.seg_path = join(expanduser('~/datasets/PhraseCut/VGPhraseCut_v0/images/'))
         self.img_path = join(expanduser('~/datasets/PhraseCut/VGPhraseCut_v0/segmentation/'))
+        self.mode = mode
 
     def __len__(self):
         return len(self.sample_ids)
 
     def load_sample(self, sample_i): #😉 load_samples.
-        
+                
         sample_ref_data = self.info[sample_i] #😉  loader get reference data?🙋‍♂️ Not sure what reference data is 
 
         phrases = sample_ref_data['phrases'] #😉 phrases.
-        idx = torch.randint(0, len(phrases), (1,)).item() 
+        
+        if self.mode == "test":
+            idx = 0 #To choose the first phrase.
+        else:    
+            idx = torch.randint(0, len(phrases), (1,)).item() 
+
+        if sample_ref_data['class_name'] == "background": #😉 I need to solve this problem with the background.
+            idx = 2
+
         phrase = phrases[idx]
         mask_path = sample_ref_data['mask_path']
         img_path = sample_ref_data['img_path']

@@ -71,7 +71,7 @@ test_configuration:
     mask: text
     label_support: True
     sigmoid: True
-    save_pred_dir: "./store_pred/Endovis2017/"
+    save_pred_dir: "./store/Endovis2017/"
     complex_trans_conv: True
     
 

@@ -73,6 +73,17 @@ test_configuration:
     sigmoid: True
     save_pred_dir: "./store/Endovis2017/"
     complex_trans_conv: True
+
+  - # test on pretrained.
+    name: pc  
+    metric: metrics.FixedIntervalMetrics
+    test_dataset: Endovis2017
+    split: test
+    mask: text
+    label_support: True
+    sigmoid: True
+    save_pred_dir: "./store/Endovis2017_pretrained/"
+    complex_trans_conv: True  
     
 
 
@@ -87,4 +98,7 @@ individual_configurations:
 
 #work training with only text, no negative probability 
 - {name: rd64-uni, version: 'ViT-B/16', reduce_dim: 64, with_visual: False, negative_prob: 0, mix: False, complex_trans_conv: True, mask: text }
+
+#test training with only text, pretrained.  
+- {name: pretrained-uni, version: 'ViT-B/16', reduce_dim: 64, with_visual: False, negative_prob: 0, mix: False, complex_trans_conv: True, mask: text }
 
